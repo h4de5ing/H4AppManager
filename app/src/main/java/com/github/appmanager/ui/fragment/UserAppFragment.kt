@@ -8,6 +8,7 @@ import com.github.appmanager.adapter.AppAdapter
 import com.github.appmanager.databinding.FragmentAppBinding
 import com.github.appmanager.ui.base.BaseFragment
 import com.github.appmanager.ui.viewmodel.AppViewModel
+import com.github.appmanager.utils.ViewUtils
 import kotlinx.android.synthetic.main.fragment_app.*
 
 
@@ -22,5 +23,8 @@ class UserAppFragment : BaseFragment<FragmentAppBinding>(R.layout.fragment_app) 
             adapter.setNewInstance(it.filter { item -> !item.isSystem }.toMutableList())
             adapter.notifyDataSetChanged()
         })
+        adapter.setOnItemClickListener { _, _, position ->
+            ViewUtils.appInfoDialog(activity, adapter.getItem(position))
+        }
     }
 }

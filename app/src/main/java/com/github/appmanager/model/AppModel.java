@@ -72,4 +72,15 @@ public class AppModel {
     public void setAppApk(String appApk) {
         this.appApk = appApk;
     }
+
+    @Override
+    public String toString() {
+        return "appName='" + appName + '\'' +
+                ", appSize='" + appSize + '\'' +
+                ", appDate='" + appDate + '\'' +
+                ", appApk='" + appApk + '\'' +
+                ", appPack='" + appPack + '\'' +
+                ", isSystem=" + isSystem +
+                '}';
+    }
 }

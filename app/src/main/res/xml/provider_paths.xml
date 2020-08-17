@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--    代表根目录context.getFilesDir()-->
+    <external-path
+        name="external"
+        path="." />
+    <!--    代表根目录Environment.getExternalStorageDirectory()-->
+    <files-path
+        name="files"
+        path="." />
+</paths>

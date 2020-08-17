@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.github.appmanager.R
 import com.github.appmanager.adapter.AppAdapter
 import com.github.appmanager.utils.AppUtil2
+import com.github.appmanager.utils.ViewUtils
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
