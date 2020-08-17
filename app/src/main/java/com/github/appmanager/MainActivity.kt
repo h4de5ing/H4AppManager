@@ -5,7 +5,9 @@ import android.util.Log
 import android.view.MenuItem
 import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Observer
 import androidx.viewpager2.adapter.FragmentStateAdapter
+import com.github.appmanager.model.AppModel
 import com.github.appmanager.ui.base.BaseSearchActivity
 import com.github.appmanager.ui.fragment.SystemAppFragment
 import com.github.appmanager.ui.fragment.UserAppFragment
@@ -22,6 +24,7 @@ class MainActivity : BaseSearchActivity() {
     private var titles = mutableListOf("用户应用", "系统应用")
     private val pages = listOf(UserAppFragment(), SystemAppFragment())
     private val appViewModel: AppViewModel by viewModels()
+    private val appList = mutableListOf<AppModel>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -41,12 +44,19 @@ class MainActivity : BaseSearchActivity() {
             TabLayoutMediator.TabConfigurationStrategy { tab, position ->
                 tab.text = titles[position]
             }).attach()
+        onClickItem.observe(
+            this,
+            Observer {
+                ViewUtils.appInfoDialog(
+                    this,
+                    appList.firstOrNull { item -> item.appPack == it })
+            })
         loadData()
     }
 
     private fun loadData() {
         GlobalScope.launch {
-            val appList = AppUtil2.getInstallApp(this@MainActivity)
+            appList.addAll(AppUtil2.getInstallApp(this@MainActivity))
             Log.i("gh0st", "加载结束:${appList.size}")
             appViewModel.appList.postValue(appList)
             appList.forEach {
