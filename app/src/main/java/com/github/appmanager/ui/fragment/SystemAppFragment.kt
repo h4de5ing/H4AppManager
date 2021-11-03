@@ -1,7 +1,6 @@
 package com.github.appmanager.ui.fragment
 
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.github.appmanager.R
 import com.github.appmanager.adapter.AppAdapter
@@ -19,7 +18,7 @@ class SystemAppFragment : BaseFragment<FragmentAppBinding>(R.layout.fragment_app
         recyclerview.setHasFixedSize(true)
         recyclerview.layoutManager = LinearLayoutManager(activity)
         recyclerview.adapter = adapter
-        viewModel.appList.observe(this, Observer {
+        viewModel.appList.observe(this, {
             adapter.setNewInstance(it.filter { item -> item.isSystem }.toMutableList())
             adapter.notifyDataSetChanged()
         })

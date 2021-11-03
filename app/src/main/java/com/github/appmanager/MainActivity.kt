@@ -5,7 +5,6 @@ import android.util.Log
 import android.view.MenuItem
 import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Observer
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.github.appmanager.model.AppModel
 import com.github.appmanager.ui.base.BaseSearchActivity
@@ -38,19 +37,14 @@ class MainActivity : BaseSearchActivity() {
         }
         main_viewPager2.adapter = adapter
         main_viewPager2.offscreenPageLimit = 2
-        TabLayoutMediator(
-            main_tabLayout,
-            main_viewPager2,
-            TabLayoutMediator.TabConfigurationStrategy { tab, position ->
-                tab.text = titles[position]
-            }).attach()
-        onClickItem.observe(
-            this,
-            Observer {
-                ViewUtils.appInfoDialog(
-                    this,
-                    appList.firstOrNull { item -> item.appPack == it })
-            })
+        TabLayoutMediator(main_tabLayout, main_viewPager2) { tab, position ->
+            tab.text = titles[position]
+        }.attach()
+        onClickItem.observe(this, {
+            ViewUtils.appInfoDialog(
+                this,
+                appList.firstOrNull { item -> item.appPack == it })
+        })
         loadData()
     }
 
