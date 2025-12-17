@@ -7,9 +7,6 @@ import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 
-import com.code19.library.AppUtils;
-import com.code19.library.DateUtils;
-import com.code19.library.FileUtils;
 import com.github.appmanager.model.AppModel;
 
 import java.util.ArrayList;

@@ -9,7 +9,8 @@ import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.MutableLiveData
 import com.github.appmanager.R
 import com.github.appmanager.adapter.CustomSuggestionsAdapter
-import kotlinx.android.synthetic.main.activity_main.*
+import java.util.Locale
+import java.util.Locale.getDefault
 
 abstract class BaseSearchActivity : BaseActivity() {
     var searchView: SearchView? = null
@@ -50,7 +51,11 @@ abstract class BaseSearchActivity : BaseActivity() {
                             SearchManager.SUGGEST_COLUMN_TEXT_2_URL
                         )
                     )
-                    allDataList.filter { it.second.toLowerCase().contains(query.toLowerCase()) }
+                    allDataList.filter { it.second.lowercase(getDefault()).contains(
+                        query.lowercase(
+                            getDefault()
+                        )
+                    ) }
                         .forEachIndexed { index, any ->
                             newCursor.addRow(arrayOf(index, any.first, any.second, any.third))
                         }
@@ -64,8 +69,8 @@ abstract class BaseSearchActivity : BaseActivity() {
 
     @SuppressLint("RestrictedApi")
     fun closeSearchView() {
-        if (toolbar != null)
-            toolbar.collapseActionView()
+//        if (toolbar != null)
+//            toolbar.collapseActionView()
     }
 
     override fun onBackPressed() {

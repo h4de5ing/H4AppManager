@@ -6,10 +6,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 
-import com.code19.library.AppUtils;
-import com.code19.library.DateUtils;
-import com.code19.library.FileUtils;
-import com.code19.library.SpannableStringUtils;
 import com.github.appmanager.R;
 import com.github.appmanager.model.AppModel;
 
