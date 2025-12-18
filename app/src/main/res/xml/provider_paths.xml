@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <!--    代表根目录context.getFilesDir()-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- External storage access for sharing files -->
+    <external-files-path 
+        name="external_files" 
+        path="." />
+        
+    <!-- Downloads directory access -->
     <external-path
-        name="external"
-        path="." />
-    <!--    代表根目录Environment.getExternalStorageDirectory()-->
-    <files-path
-        name="files"
-        path="." />
+        name="downloads"
+        path="Download/" />
+        
+    <!-- App-specific external directory -->
+    <external-files-path
+        name="external_app_specific"
+        path="AppManager/" />
 </paths>

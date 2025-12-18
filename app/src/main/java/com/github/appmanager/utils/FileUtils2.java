@@ -14,7 +14,12 @@ import java.io.InputStream;
 
 public class FileUtils2 {
     public static String getApkFilePath(Context context) {
-        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath();
+        // For Android 10 and above, we should use context-specific directories
+        // or use MediaStore API for better compatibility with scoped storage
+        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        File appManagerDir = new File(downloadsDir, "AppManager");
+        if (!appManagerDir.exists()) appManagerDir.mkdirs();
+        return appManagerDir.getAbsolutePath();
     }
 
     /**
@@ -55,7 +60,7 @@ public class FileUtils2 {
                 }
             }
         } else {
-            int byteread = 0;
+            int byteread;
             File oldfile = new File(source);
             if (oldfile.exists()) {
                 InputStream inStream = new FileInputStream(source);

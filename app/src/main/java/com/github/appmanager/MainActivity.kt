@@ -13,6 +13,7 @@ import com.github.appmanager.ui.fragment.SystemAppFragment
 import com.github.appmanager.ui.fragment.UserAppFragment
 import com.github.appmanager.ui.viewmodel.AppViewModel
 import com.github.appmanager.utils.AppUtil2
+import com.github.appmanager.utils.StoragePermissionHelper
 import com.github.appmanager.utils.ViewUtils
 import com.google.android.material.tabs.TabLayoutMediator
 import kotlinx.coroutines.GlobalScope
@@ -31,7 +32,11 @@ class MainActivity : BaseSearchActivity() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(!isTaskRoot)
 
-        titles.forEach { binding.contentMain.mainTabLayout.addTab(binding.contentMain.mainTabLayout.newTab().setText(it)) }
+        titles.forEach {
+            binding.contentMain.mainTabLayout.addTab(
+                binding.contentMain.mainTabLayout.newTab().setText(it)
+            )
+        }
         val adapter = object : FragmentStateAdapter(this) {
             override fun getItemCount(): Int = pages.size
 
@@ -40,14 +45,16 @@ class MainActivity : BaseSearchActivity() {
 
         binding.contentMain.mainViewPager2.adapter = adapter
         binding.contentMain.mainViewPager2.offscreenPageLimit = 2
-        TabLayoutMediator(binding.contentMain.mainTabLayout, binding.contentMain.mainViewPager2) { tab, position ->
+        TabLayoutMediator(
+            binding.contentMain.mainTabLayout, binding.contentMain.mainViewPager2
+        ) { tab, position ->
             tab.text = titles[position]
         }.attach()
         onClickItem.observe(this, {
             ViewUtils.appInfoDialog(
-                this,
-                appList.firstOrNull { item -> item.appPack == it })
+                this, appList.firstOrNull { item -> item.appPack == it })
         })
+        checkAndRequestPermissions()
         loadData()
     }
 
@@ -62,6 +69,12 @@ class MainActivity : BaseSearchActivity() {
         }
     }
 
+    private fun checkAndRequestPermissions() {
+        if (!StoragePermissionHelper.hasStoragePermission(this)) {
+            StoragePermissionHelper.requestStoragePermission(this)
+        }
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.action_apk -> ViewUtils.openAPk(this)
@@ -69,5 +82,12 @@ class MainActivity : BaseSearchActivity() {
             R.id.action_about -> ViewUtils.aboutDialog(this)
         }
         return super.onOptionsItemSelected(item)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        StoragePermissionHelper.onRequestPermissionsResult(requestCode, grantResults)
     }
 }
