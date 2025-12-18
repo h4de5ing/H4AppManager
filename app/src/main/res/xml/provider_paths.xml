@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<paths xmlns:android="http://schemas.android.com/apk/res/android">
+<paths>
     <!-- External storage access for sharing files -->
-    <external-files-path 
-        name="external_files" 
+    <external-files-path
+        name="external_files"
         path="." />
-        
+
     <!-- Downloads directory access -->
     <external-path
         name="downloads"
         path="Download/" />
-        
+
     <!-- App-specific external directory -->
     <external-files-path
         name="external_app_specific"

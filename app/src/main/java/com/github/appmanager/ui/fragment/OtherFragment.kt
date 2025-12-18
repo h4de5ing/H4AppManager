@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.github.appmanager.R
 import com.github.appmanager.adapter.AppAdapter
 import com.github.appmanager.utils.AppUtil2
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
