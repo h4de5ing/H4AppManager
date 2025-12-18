@@ -12,11 +12,22 @@ android {
         versionCode 1
         versionName "1.0"
     }
-
+    signingConfigs {
+        sign {
+            storeFile file("../app.jks")
+            storePassword('android')
+            keyAlias('android')
+            keyPassword('android')
+        }
+    }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.sign
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.sign
         }
     }
     buildFeatures {

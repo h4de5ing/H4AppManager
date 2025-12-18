@@ -10,15 +10,6 @@
     android:orientation="horizontal"
     android:paddingVertical="16dp">
 
-    <ImageView
-        android:id="@android:id/icon1"
-        style="@style/RtlOverlay.Widget.AppCompat.Search.DropDown.Icon1"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:scaleType="centerInside"
-        android:src="@drawable/ic_sentiment_satisfied"
-        app:tint="?colorControlActivated" />
-
     <com.google.android.material.textview.MaterialTextView
         android:id="@android:id/text1"
         style="?android:attr/dropDownItemStyle"

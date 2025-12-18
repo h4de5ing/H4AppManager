@@ -1,6 +1,7 @@
 package com.github.appmanager.utils;
 
 import android.content.Context;
+import android.os.Environment;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -13,10 +14,7 @@ import java.io.InputStream;
 
 public class FileUtils2 {
     public static String getApkFilePath(Context context) {
-        File file = context.getExternalFilesDir("apk");
-        if (!file.exists()) file.mkdir();
-        return file.getAbsolutePath() + File.separator;
-        //return Environment.getExternalStorageDirectory() + File.separator + "APKCode19" + File.separator;
+        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath();
     }
 
     /**

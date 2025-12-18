@@ -17,27 +17,25 @@ public class ViewUtils {
     /**
      * 应用信息
      *
-     * @param activity
-     * @param appModel
      */
     public static void appInfoDialog(final Activity activity, final AppModel appModel) {
         AlertDialog.Builder dialog = new AlertDialog.Builder(activity);
         dialog.setCancelable(false);
         dialog.setIcon(appModel.getAppIcon());
         dialog.setTitle(appModel.getAppName());
-        String packname = appModel.getAppPack();
-        dialog.setMessage(SpannableStringUtils.getBuilder(activity, activity.getString(R.string.app_info_packname, packname))
+        String modelAppPack = appModel.getAppPack();
+        dialog.setMessage(SpannableStringUtils.getBuilder(activity, activity.getString(R.string.app_info_packname, modelAppPack))
                 .append(activity.getString(R.string.app_info,
-                        AppUtils.getAppApk(activity, packname),
-                        AppUtil2.getAppDataDir(activity, packname),
-                        AppUtils.getAppVersionName(activity, packname),
-                        AppUtils.getAppVersionCode(activity, packname),
-                        FileUtils.formatFileSize(activity, AppUtils.getAppSize(activity, packname)),
-                        DateUtils.formatDataTime(AppUtils.getAppFirstInstallTime(activity, packname)),
-                        DateUtils.formatDataTime(AppUtils.getAppLastUpdateTime(activity, packname)),
-                        AppUtils.getAppTargetSdkVersion(activity, packname),
-                        AppUtils.getAppUid(activity, packname),
-                        AppUtils.getAppSign(activity, packname)
+                        AppUtils.getAppApk(activity, modelAppPack),
+                        AppUtil2.getAppDataDir(activity, modelAppPack),
+                        AppUtils.getAppVersionName(activity, modelAppPack),
+                        AppUtils.getAppVersionCode(activity, modelAppPack),
+                        FileUtils.formatFileSize(activity, AppUtils.getAppSize(activity, modelAppPack)),
+                        DateUtils.formatDataTime(AppUtils.getAppFirstInstallTime(activity, modelAppPack)),
+                        DateUtils.formatDataTime(AppUtils.getAppLastUpdateTime(activity, modelAppPack)),
+                        AppUtils.getAppTargetSdkVersion(activity, modelAppPack),
+                        AppUtils.getAppUid(activity, modelAppPack),
+                        AppUtils.getAppSign(activity, modelAppPack)
                 )).create());
         dialog.setNegativeButton(activity.getString(R.string.app_info_share_apk), (dialog1, which) -> {
             try {
@@ -48,10 +46,10 @@ public class ViewUtils {
                 e.printStackTrace();
             }
         });
-        dialog.setPositiveButton(android.R.string.cancel, (dialog12, which) -> {
+        dialog.setPositiveButton(android.R.string.cancel, (_, _) -> {
 
         });
-        dialog.setNeutralButton(activity.getString(R.string.app_info_load_apk), (dialog13, which) -> {
+        dialog.setNeutralButton(activity.getString(R.string.app_info_load_apk), (_, _) -> {
             try {
                 FileUtils2.copy(appModel.getAppApk(), FileUtils2.getApkFilePath(activity) + appModel.getAppPack() + ".apk", false);
                 Toast.makeText(activity, activity.getString(R.string.app_info_load_apk_success), Toast.LENGTH_SHORT).show();

@@ -1,6 +1,5 @@
 package com.github.appmanager.ui.base
 
-import android.annotation.SuppressLint
 import android.app.SearchManager
 import android.database.MatrixCursor
 import android.provider.BaseColumns
@@ -9,15 +8,12 @@ import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.MutableLiveData
 import com.github.appmanager.R
 import com.github.appmanager.adapter.CustomSuggestionsAdapter
-import java.util.Locale
 import java.util.Locale.getDefault
 
 abstract class BaseSearchActivity : BaseActivity() {
     var searchView: SearchView? = null
-
-    //第一行为标题 第二行为显示的内容 第三行为点击后的标记
     val allDataList = mutableListOf<Triple<String, String, String>>()
-    var onClickItem = MutableLiveData<String>()
+    var onClickItem = MutableLiveData<String?>()
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.search, menu)
         searchView = menu.findItem(R.id.action_search).actionView as SearchView
@@ -35,7 +31,6 @@ abstract class BaseSearchActivity : BaseActivity() {
                         this?.getString(3)
                     }
                     onClickItem.value = info
-                    closeSearchView()
                     return true
                 }
             })
@@ -51,11 +46,13 @@ abstract class BaseSearchActivity : BaseActivity() {
                             SearchManager.SUGGEST_COLUMN_TEXT_2_URL
                         )
                     )
-                    allDataList.filter { it.second.lowercase(getDefault()).contains(
-                        query.lowercase(
-                            getDefault()
+                    allDataList.filter {
+                        it.second.lowercase(getDefault()).contains(
+                            query.lowercase(
+                                getDefault()
+                            )
                         )
-                    ) }
+                    }
                         .forEachIndexed { index, any ->
                             newCursor.addRow(arrayOf(index, any.first, any.second, any.third))
                         }
@@ -65,16 +62,5 @@ abstract class BaseSearchActivity : BaseActivity() {
             })
         }
         return true
-    }
-
-    @SuppressLint("RestrictedApi")
-    fun closeSearchView() {
-//        if (toolbar != null)
-//            toolbar.collapseActionView()
-    }
-
-    override fun onBackPressed() {
-        super.onBackPressed()
-        closeSearchView()
     }
 }

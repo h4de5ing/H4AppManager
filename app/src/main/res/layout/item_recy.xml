@@ -22,24 +22,24 @@
             android:layout_width="60dp"
             android:layout_height="60dp"
             android:layout_centerVertical="true"
-            tools:src="@mipmap/ic_launcher" />
+            tools:src="@drawable/ic_launcher" />
 
         <TextView
             android:id="@+id/recy_app_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
-            android:layout_marginLeft="5dp"
-            android:layout_toRightOf="@+id/recy_app_icon"
+            android:layout_marginStart="5dp"
+            android:layout_toEndOf="@+id/recy_app_icon"
             tools:text="应用名称" />
 
         <TextView
             android:id="@+id/recy_app_size"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentRight="true"
+            android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:layout_marginLeft="5dp"
+            android:layout_marginStart="5dp"
             tools:text="应用大小" />
     </RelativeLayout>
 </androidx.cardview.widget.CardView>
