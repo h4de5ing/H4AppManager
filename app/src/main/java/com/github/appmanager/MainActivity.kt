@@ -1,5 +1,6 @@
 package com.github.appmanager
 
+import android.app.AlertDialog
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -11,27 +12,29 @@ import android.text.format.Formatter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.ImageView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.switchmaterial.SwitchMaterial
 import java.io.File
 import java.io.FileInputStream
+import java.security.MessageDigest
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
     private val allApps = mutableListOf<InstalledApp>()
     private val appAdapter = AppAdapter()
     private var pendingExportApp: InstalledApp? = null
@@ -39,7 +42,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appListView: RecyclerView
     private lateinit var emptyView: TextView
     private lateinit var loadingView: View
-    private lateinit var showSystemAppsSwitch: SwitchMaterial
+    private lateinit var titleCountView: TextView
+    private lateinit var searchInput: EditText
+    private lateinit var showSystemAppsSwitch: Switch
 
     private val exportApkLauncher =
         registerForActivityResult(
@@ -56,25 +61,28 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+        optimizeSystemBars()
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            view.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
+
         appListView = findViewById(R.id.app_list)
         emptyView = findViewById(R.id.empty_view)
         loadingView = findViewById(R.id.loading_view)
+        titleCountView = findViewById(R.id.title_count)
+        searchInput = findViewById(R.id.search_input)
         showSystemAppsSwitch = findViewById(R.id.show_system_apps_switch)
-
-        setSupportActionBar(toolbar)
-        supportActionBar?.setTitle(R.string.app_name)
 
         appListView.layoutManager = LinearLayoutManager(this)
         appListView.adapter = appAdapter
 
+        searchInput.doAfterTextChanged {
+            applyFilters()
+        }
         showSystemAppsSwitch.setOnCheckedChangeListener { _, _ ->
-            applyFilter()
+            applyFilters()
         }
 
         loadApps()
@@ -87,7 +95,7 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 allApps.clear()
                 allApps.addAll(apps)
-                applyFilter()
+                applyFilters()
                 showLoading(false)
             }
         }.start()
@@ -95,10 +103,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun queryInstalledApps(): List<InstalledApp> {
         val packages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(0L))
+            packageManager.getInstalledPackages(
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
+            )
         } else {
             @Suppress("DEPRECATION")
-            packageManager.getInstalledPackages(0)
+            packageManager.getInstalledPackages(PackageManager.GET_SIGNATURES)
         }
 
         return packages.mapNotNull { packageInfo ->
@@ -108,13 +118,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun PackageInfo.toInstalledAppOrNull(): InstalledApp? {
         val appInfo = applicationInfo ?: return null
-        val label = appInfo.loadLabel(packageManager).toString()
+        val label = appInfo.loadLabel(packageManager)?.toString()?.takeIf { it.isNotBlank() }
+            ?: packageName
         val apkPath = appInfo.sourceDir.orEmpty()
         val apkFile = apkPath.takeIf { it.isNotBlank() }?.let(::File)
 
         return InstalledApp(
             label = label,
-            packageName = this.packageName,
+            packageName = packageName,
             versionName = versionName.orEmpty(),
             versionCode = PackageInfoCompat.getLongVersionCode(this),
             isSystem = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0,
@@ -124,20 +135,25 @@ class MainActivity : AppCompatActivity() {
             firstInstallTime = firstInstallTime,
             lastUpdateTime = lastUpdateTime,
             targetSdk = appInfo.targetSdkVersion,
+            signature = buildSignatureSummary(this),
         )
     }
 
-    private fun applyFilter() {
-        val filteredApps = if (showSystemAppsSwitch.isChecked) {
-            allApps
-        } else {
-            allApps.filterNot { it.isSystem }
+    private fun applyFilters() {
+        val showSystemApps = showSystemAppsSwitch.isChecked
+        val query = searchInput.text.toString().trim().lowercase(Locale.getDefault())
+
+        val filteredApps = allApps.filter { app ->
+            val matchesSystem = showSystemApps || !app.isSystem
+            val matchesQuery = query.isBlank() ||
+                app.label.lowercase(Locale.getDefault()).contains(query) ||
+                app.packageName.lowercase(Locale.getDefault()).contains(query)
+            matchesSystem && matchesQuery
         }
 
         appAdapter.submitList(filteredApps)
         emptyView.isVisible = filteredApps.isEmpty() && !loadingView.isVisible
-        supportActionBar?.subtitle =
-            getString(R.string.app_count, filteredApps.size, allApps.size)
+        titleCountView.text = getString(R.string.app_count, filteredApps.size, allApps.size)
     }
 
     private fun showLoading(visible: Boolean) {
@@ -163,9 +179,10 @@ class MainActivity : AppCompatActivity() {
             formatTime(app.lastUpdateTime),
             app.targetSdk.toString(),
             app.apkPath,
+            app.signature,
         )
 
-        MaterialAlertDialogBuilder(this)
+        AlertDialog.Builder(this)
             .setTitle(app.label)
             .setIcon(app.icon)
             .setMessage(details)
@@ -216,6 +233,38 @@ class MainActivity : AppCompatActivity() {
 
     private fun formatTime(timeMillis: Long): String {
         return DateFormat.getDateTimeInstance().format(Date(timeMillis))
+    }
+
+    private fun optimizeSystemBars() {
+        window.statusBarColor = getColor(R.color.colorPrimaryDark)
+        window.navigationBarColor = getColor(R.color.surface)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = true
+    }
+
+    private fun buildSignatureSummary(packageInfo: PackageInfo): String {
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.signingInfo?.apkContentsSigners?.map { it.toByteArray() }.orEmpty()
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.signatures?.map { it.toByteArray() }.orEmpty()
+        }
+
+        if (signatures.isEmpty()) {
+            return getString(R.string.unknown_value)
+        }
+
+        return signatures.joinToString(separator = "\n\n") { bytes ->
+            sha256(bytes)
+        }
+    }
+
+    private fun sha256(bytes: ByteArray): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+        return digest.joinToString(separator = ":") { byte ->
+            "%02X".format(byte)
+        }
     }
 
     private inner class AppAdapter : RecyclerView.Adapter<AppViewHolder>() {
@@ -282,5 +331,6 @@ class MainActivity : AppCompatActivity() {
         val firstInstallTime: Long,
         val lastUpdateTime: Long,
         val targetSdk: Int,
+        val signature: String,
     )
 }

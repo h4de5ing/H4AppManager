@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">H4 应用管理</string>
+    <string name="app_count_initial">准备加载应用…</string>
     <string name="show_system_apps">显示系统应用</string>
+    <string name="search_hint">搜索应用名称或包名</string>
     <string name="loading_apps">正在加载应用…</string>
     <string name="no_apps">没有可显示的应用</string>
     <string name="system_app">系统应用</string>
@@ -16,7 +18,8 @@ APK 大小：%5$s
 安装时间：%6$s
 更新时间：%7$s
 Target SDK：%8$s
-APK 路径：%9$s</string>
+APK 路径：%9$s
+签名 SHA-256：%10$s</string>
     <string name="export_apk">导出 APK</string>
     <string name="export_success">%1$s 已导出到所选位置</string>
     <string name="export_failed">导出失败：%1$s</string>

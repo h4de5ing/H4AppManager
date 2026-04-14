@@ -5,15 +5,11 @@ minSdk = "24"
 targetSdk = "37"
 java = "22"
 androidx-core = "1.18.0"
-androidx-appcompat = "1.7.1"
-material = "1.13.0"
 androidx-activity = "1.13.0"
 androidx-recyclerview = "1.4.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
-androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
-material = { module = "com.google.android.material:material", version.ref = "material" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "androidx-activity" }
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "androidx-recyclerview" }
 

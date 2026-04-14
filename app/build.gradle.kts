@@ -32,6 +32,12 @@ android {
             signingConfig = signingConfigs.getByName("sign")
         }
         release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             signingConfig = signingConfigs.getByName("sign")
         }
     }
@@ -50,8 +56,6 @@ kotlin {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.recyclerview)
 }
