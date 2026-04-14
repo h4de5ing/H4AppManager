@@ -312,7 +312,6 @@ class MainActivity : ComponentActivity() {
             packageView.text = app.packageName
             metaView.text = getString(
                 R.string.app_meta,
-                getString(if (app.isSystem) R.string.system_app else R.string.user_app),
                 app.versionName.ifBlank { getString(R.string.unknown_value) },
                 Formatter.formatFileSize(itemView.context, app.apkSizeBytes),
             )

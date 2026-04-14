@@ -1,15 +1,15 @@
 <resources>
     <string name="app_name">H4 应用管理</string>
-    <string name="app_count_initial">准备加载应用…</string>
-    <string name="show_system_apps">显示系统应用</string>
-    <string name="search_hint">搜索应用名称或包名</string>
+    <string name="app_count_initial">加载中…</string>
+    <string name="show_system_apps">系统</string>
+    <string name="search_hint">搜索应用</string>
     <string name="loading_apps">正在加载应用…</string>
     <string name="no_apps">没有可显示的应用</string>
     <string name="system_app">系统应用</string>
     <string name="user_app">用户应用</string>
     <string name="unknown_value">未知</string>
-    <string name="app_count">%1$d 个显示 / %2$d 个总计</string>
-    <string name="app_meta">%1$s · %2$s · %3$s</string>
+    <string name="app_count">%1$d / %2$d</string>
+    <string name="app_meta">%1$s · %2$s</string>
     <string name="app_details">包名：%1$s
 类型：%2$s
 版本名：%3$s
