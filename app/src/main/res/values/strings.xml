@@ -10,16 +10,7 @@
     <string name="unknown_value">未知</string>
     <string name="app_count">%1$d / %2$d</string>
     <string name="app_meta">%1$s · %2$s</string>
-    <string name="app_details">包名：%1$s
-类型：%2$s
-版本名：%3$s
-版本号：%4$s
-APK 大小：%5$s
-安装时间：%6$s
-更新时间：%7$s
-Target SDK：%8$s
-APK 路径：%9$s
-签名 SHA-256：%10$s</string>
+    <string name="app_details">包名：%1$s\n类型：%2$s\n版本名：%3$s\n版本号：%4$s\nAPK 大小：%5$s\n安装时间：%6$s\n更新时间：%7$s\nTarget SDK：%8$s\nAPK 路径：%9$s\n签名 MD5：%10$s\n签名 SHA-1：%11$s\n签名 SHA-256：%12$s</string>
     <string name="export_apk">导出 APK</string>
     <string name="export_success">%1$s 已导出到所选位置</string>
     <string name="export_failed">导出失败：%1$s</string>

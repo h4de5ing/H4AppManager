@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
             firstInstallTime = firstInstallTime,
             lastUpdateTime = lastUpdateTime,
             targetSdk = appInfo.targetSdkVersion,
-            signature = buildSignatureSummary(this),
+            signatureDigests = buildSignatureDigests(this),
         )
     }
 
@@ -179,7 +179,9 @@ class MainActivity : ComponentActivity() {
             formatTime(app.lastUpdateTime),
             app.targetSdk.toString(),
             app.apkPath,
-            app.signature,
+            app.signatureDigests.md5,
+            app.signatureDigests.sha1,
+            app.signatureDigests.sha256,
         )
 
         AlertDialog.Builder(this)
@@ -243,7 +245,7 @@ class MainActivity : ComponentActivity() {
         controller.isAppearanceLightNavigationBars = true
     }
 
-    private fun buildSignatureSummary(packageInfo: PackageInfo): String {
+    private fun buildSignatureDigests(packageInfo: PackageInfo): SignatureDigests {
         val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.signingInfo?.apkContentsSigners?.map { it.toByteArray() }.orEmpty()
         } else {
@@ -252,16 +254,23 @@ class MainActivity : ComponentActivity() {
         }
 
         if (signatures.isEmpty()) {
-            return getString(R.string.unknown_value)
+            val unknown = getString(R.string.unknown_value)
+            return SignatureDigests(
+                md5 = unknown,
+                sha1 = unknown,
+                sha256 = unknown,
+            )
         }
 
-        return signatures.joinToString(separator = "\n\n") { bytes ->
-            sha256(bytes)
-        }
+        return SignatureDigests(
+            md5 = signatures.joinToString(" | ") { digest("MD5", it) },
+            sha1 = signatures.joinToString(" | ") { digest("SHA-1", it) },
+            sha256 = signatures.joinToString(" | ") { digest("SHA-256", it) },
+        )
     }
 
-    private fun sha256(bytes: ByteArray): String {
-        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
+    private fun digest(algorithm: String, bytes: ByteArray): String {
+        val digest = MessageDigest.getInstance(algorithm).digest(bytes)
         return digest.joinToString(separator = ":") { byte ->
             "%02X".format(byte)
         }
@@ -330,6 +339,12 @@ class MainActivity : ComponentActivity() {
         val firstInstallTime: Long,
         val lastUpdateTime: Long,
         val targetSdk: Int,
-        val signature: String,
+        val signatureDigests: SignatureDigests,
+    )
+
+    private data class SignatureDigests(
+        val md5: String,
+        val sha1: String,
+        val sha256: String,
     )
 }
