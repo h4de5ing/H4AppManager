@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#6200EE</color>
-    <color name="colorPrimaryDark">#3700B3</color>
-    <color name="colorAccent">#03DAC5</color>
-    <color name="black">#000000</color>
-    <color name="white">#FFFFFF</color>
-    <color name="green_pressed">#30A070</color>
+    <color name="colorPrimary">#0F766E</color>
+    <color name="colorPrimaryDark">#134E4A</color>
+    <color name="colorAccent">#F59E0B</color>
+    <color name="appBackground">#F4F7F5</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="textSecondary">#5F6B67</color>
 </resources>
