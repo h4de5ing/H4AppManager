@@ -1,9 +1,8 @@
 package com.github.appmanager.utils;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.widget.Toast;
-
-import androidx.appcompat.app.AlertDialog;
 
 import com.github.appmanager.R;
 import com.github.appmanager.model.AppModel;
@@ -27,7 +26,7 @@ public class ViewUtils {
         String modelAppPack = appModel.getAppPack();
         dialog.setMessage(SpannableStringUtils.getBuilder(activity, activity.getString(R.string.app_info_packname, modelAppPack)).append(activity.getString(R.string.app_info, AppUtils.getAppApk(activity, modelAppPack), AppUtil2.getAppDataDir(activity, modelAppPack), AppUtils.getAppVersionName(activity, modelAppPack), AppUtils.getAppVersionCode(activity, modelAppPack), FileUtils.formatFileSize(activity, AppUtils.getAppSize(activity, modelAppPack)), DateUtils.formatDataTime(AppUtils.getAppFirstInstallTime(activity, modelAppPack)), DateUtils.formatDataTime(AppUtils.getAppLastUpdateTime(activity, modelAppPack)), AppUtils.getAppTargetSdkVersion(activity, modelAppPack), AppUtils.getAppUid(activity, modelAppPack), AppUtils.getAppSign(activity, modelAppPack))).create());
         dialog.setPositiveButton(android.R.string.cancel, null);
-        dialog.setNeutralButton(activity.getString(R.string.app_info_load_apk), (_, _) -> {
+        dialog.setNeutralButton(activity.getString(R.string.app_info_load_apk), (dialogInterface, i) -> {
             try {
                 String filepath = FileUtils2.getApkFilePath(activity) + File.separator + appModel.getAppPack() + ".apk";
                 FileUtils2.copy(appModel.getAppApk(), filepath, false);
@@ -71,7 +70,7 @@ public class ViewUtils {
         dialog.setIcon(AppUtils.getAppIcon(activity, activity.getPackageName()));
         dialog.setTitle(activity.getString(R.string.action_about) + " " + AppUtils.getAppVersionName(activity, activity.getPackageName()));
         dialog.setMessage(SpannableStringUtils.getBuilder(activity, activity.getString(R.string.about)).create());
-        dialog.setNegativeButton(activity.getString(R.string.about_tips0), (_, _) -> FileUtils.openURL(activity, activity.getString(R.string.about_website)));
+        dialog.setNegativeButton(activity.getString(R.string.about_tips0), (dialogInterface, i) -> FileUtils.openURL(activity, activity.getString(R.string.about_website)));
         dialog.setPositiveButton(activity.getString(R.string.about_tips1), null);
         if (!activity.isFinishing()) dialog.show();
     }
