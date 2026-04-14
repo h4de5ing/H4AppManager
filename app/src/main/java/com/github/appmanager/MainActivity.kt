@@ -229,7 +229,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildExportFileName(app: InstalledApp): String {
-        return "${app.label}-${app.packageName}.apk"
+        val versionName = app.versionName.ifBlank { getString(R.string.unknown_value) }
+        return "${app.label}-${app.packageName}-${versionName}.apk"
             .replace(Regex("[\\\\/:*?\"<>|]"), "_")
     }
 
