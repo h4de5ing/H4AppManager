@@ -9,6 +9,7 @@ androidx-activity = "1.13.0"
 androidx-recyclerview = "1.4.0"
 kotlinx-serialization = "1.11.0"
 okio = "3.17.0"
+websockets = "1.6.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
@@ -16,6 +17,7 @@ androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "androidx-recyclerview" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
+websockets = { module = "org.java-websocket:Java-WebSocket", version.ref = "websockets" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

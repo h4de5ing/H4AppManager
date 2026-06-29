@@ -10,51 +10,31 @@ object ChatSerializer {
         prettyPrint = false
     }
 
-    fun serializeSingle(obj: ChatMessage): String {
-        return json.encodeToString(ChatMessage.serializer(), obj)
+    fun serializeMessage(msg: RoomMessage): String {
+        return json.encodeToString(RoomMessage.serializer(), msg)
     }
 
-    fun serializeMessageList(list: List<ChatMessage>): String {
-        return json.encodeToString(ListSerializer(ChatMessage.serializer()), list)
-    }
-
-    fun serializeFileList(list: List<FileInfo>): String {
-        return json.encodeToString(ListSerializer(FileInfo.serializer()), list)
-    }
-
-    fun serializeSessionList(list: List<ChatSession>): String {
-        return json.encodeToString(ListSerializer(ChatSession.serializer()), list)
-    }
-
-    fun deserializeMessage(jsonStr: String): ChatMessage? {
+    fun deserializeMessage(jsonStr: String): RoomMessage? {
         return try {
-            json.decodeFromString(ChatMessage.serializer(), jsonStr)
+            json.decodeFromString(RoomMessage.serializer(), jsonStr)
         } catch (e: Exception) {
             null
         }
     }
 
-    fun deserializeMessageList(jsonStr: String): List<ChatMessage> {
+    fun deserializeMessageList(jsonStr: String): List<RoomMessage> {
         return try {
-            json.decodeFromString(ListSerializer(ChatMessage.serializer()), jsonStr)
+            json.decodeFromString(ListSerializer(RoomMessage.serializer()), jsonStr)
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    fun deserializeFileList(jsonStr: String): List<FileInfo> {
+    fun deserializeUpload(jsonStr: String): UploadRequest? {
         return try {
-            json.decodeFromString(ListSerializer(FileInfo.serializer()), jsonStr)
+            json.decodeFromString(UploadRequest.serializer(), jsonStr)
         } catch (e: Exception) {
-            emptyList()
-        }
-    }
-
-    fun deserializeSessionList(jsonStr: String): List<ChatSession> {
-        return try {
-            json.decodeFromString(ListSerializer(ChatSession.serializer()), jsonStr)
-        } catch (e: Exception) {
-            emptyList()
+            null
         }
     }
 }

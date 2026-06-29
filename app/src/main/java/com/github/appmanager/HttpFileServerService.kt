@@ -9,10 +9,10 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.github.appmanager.im.ChatMessage
 import com.github.appmanager.im.ChatSerializer
 import com.github.appmanager.im.ChatService
 import java.io.File
+import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
@@ -22,13 +22,15 @@ class HttpFileServerService : Service() {
     companion object {
         const val TAG = "HttpFileServerService"
         const val CHANNEL_ID = "HttpFileServerChannel"
-        var serverPort: Int = 8080
+        var serverPort: Int = 8080          // HTTP：页面 / 文件上传 / 文件下载
+        var wsPort: Int = 8081              // WebSocket：消息实时转发
         private var serverRunning = false
         private var serverThread: Thread? = null
     }
 
     private var serverSocket: ServerSocket? = null
     private lateinit var chatService: ChatService
+    private var wsServer: ImWebSocketServer? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -40,7 +42,8 @@ class HttpFileServerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!serverRunning) {
             serverRunning = true
-            serverThread = Thread { runServer() }.apply { start() }
+            serverThread = Thread { runHttpServer() }.apply { start() }
+            startWebSocketServer()
         }
         return START_STICKY
     }
@@ -52,15 +55,23 @@ class HttpFileServerService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Error closing server socket", e)
         }
+        try {
+            wsServer?.stop()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping websocket server", e)
+        }
+        wsServer = null
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun runServer() {
+    // ---------- HTTP 服务器（仅静态页面 / info / 文件上传 / 文件下载） ----------
+
+    private fun runHttpServer() {
         try {
             serverSocket = ServerSocket(serverPort)
-            Log.i(TAG, "HTTP File Server started on port $serverPort")
+            Log.i(TAG, "HTTP Server started on port $serverPort")
 
             while (serverRunning) {
                 try {
@@ -104,14 +115,14 @@ class HttpFileServerService : Service() {
                 path == "/" || path == "/index.html" -> {
                     serveAsset(socket, "index.html", "text/html")
                 }
-                path.startsWith("/api/") -> {
-                    handleApiRequest(socket, path, request)
+                path == "/api/info" -> {
+                    handleGetInfo(socket)
+                }
+                path.startsWith("/api/upload") && method == "POST" -> {
+                    handleUpload(socket, buffer, bytesRead)
                 }
                 path.startsWith("/files/") -> {
-                    serveFileFromCache(socket, path.removePrefix("/files/"))
-                }
-                path.startsWith("/chat/") -> {
-                    handleChatRequest(socket, path, request)
+                    serveFileFromCache(socket, "chat_files/" + path.removePrefix("/files/"))
                 }
                 else -> {
                     sendResponse(socket, 404, "text/plain", "Not found")
@@ -128,113 +139,28 @@ class HttpFileServerService : Service() {
         }
     }
 
-    private fun handleApiRequest(socket: Socket, path: String, request: String) {
-        when {
-            path == "/api/messages" -> {
-                if (request.contains("POST")) {
-                    handlePostMessage(socket)
-                } else {
-                    handleGetMessages(socket)
-                }
-            }
-            path == "/api/files" -> {
-                handleGetFiles(socket)
-            }
-            path == "/api/sessions" -> {
-                handleGetSessions(socket)
-            }
-            path == "/api/info" -> {
-                handleGetInfo(socket)
-            }
-            path.startsWith("/api/upload") -> {
-                handleUpload(socket)
-            }
-            else -> {
-                sendResponse(socket, 404, "application/json", "{\"error\":\"not found\"}")
-            }
-        }
-    }
-
-    private fun handleGetMessages(socket: Socket) {
-        val messages = loadMessagesFile()
-        val json = ChatSerializer.serializeMessageList(messages)
-        sendResponse(socket, 200, "application/json", json)
-    }
-
-    private fun handlePostMessage(socket: Socket) {
-        try {
-            val body = readRequestBody(socket)
-            val msg = ChatSerializer.deserializeMessage(body)
-            if (msg != null) {
-                val newMsg = msg.copy(id = System.currentTimeMillis())
-                val messages = loadMessagesFile()
-                messages.add(newMsg)
-                saveMessagesFile(messages)
-                chatService.updateSession(newMsg)
-                sendResponse(socket, 200, "application/json", "{\"success\":true}")
-            } else {
-                sendResponse(socket, 400, "application/json", "{\"error\":\"invalid message\"}")
-            }
-        } catch (e: Exception) {
-            sendResponse(socket, 500, "application/json", "{\"error\":\"${e.message}\"}")
-        }
-    }
-
-    private fun handleGetFiles(socket: Socket) {
-        val files = chatService.getAllFilesJson()
-        sendResponse(socket, 200, "application/json", files)
-    }
-
-    private fun handleGetSessions(socket: Socket) {
-        val sessions = chatService.getChatSessionsJson()
-        sendResponse(socket, 200, "application/json", sessions)
-    }
-
     private fun handleGetInfo(socket: Socket) {
         val localId = chatService.getDeviceId()
-        val clientIp = getSocketIpAddress(socket)
-        val info = """{"baseUrl":"http://$clientIp:$serverPort","localId":"$localId","port":$serverPort}"""
+        val serverIp = getLocalIpAddress()
+        val info = """{"baseUrl":"http://$serverIp:$serverPort","wsUrl":"ws://$serverIp:$wsPort","localId":"$localId"}"""
         sendResponse(socket, 200, "application/json", info)
     }
 
-    private fun getSocketIpAddress(socket: Socket): String {
+    private fun handleUpload(socket: Socket, raw: ByteArray, rawLen: Int) {
         try {
-            return socket.inetAddress.hostAddress ?: "127.0.0.1"
-        } catch (e: Exception) {
-            return "127.0.0.1"
-        }
-    }
-
-    private fun handleUpload(socket: Socket) {
-        try {
-            val body = readRequestBody(socket)
-            val uploadData = ChatSerializer.deserializeMessage(body)
-            if (uploadData != null && uploadData.filePath != null) {
-                val srcFile = File(uploadData.filePath)
-                if (srcFile.exists()) {
-                    val destFile = File(chatService.getFilesDir2(), srcFile.name)
-                    srcFile.copyTo(destFile, overwrite = true)
-                    chatService.uploadFile(srcFile.name, srcFile.length(), destFile.absolutePath)
-                    sendResponse(socket, 200, "application/json", """{"success":true,"fileName":"${srcFile.name}"}""")
-                } else {
-                    sendResponse(socket, 404, "application/json", """{"error":"file not found"}""")
-                }
+            val body = readRequestBody(socket, raw, rawLen)
+            val upload = ChatSerializer.deserializeUpload(body)
+            if (upload != null) {
+                chatService.storeUploadedFile(upload.name, upload.data)
+                val serverIp = getLocalIpAddress()
+                val url = "http://$serverIp:$serverPort/files/${URLDecoder.decode(upload.name, "UTF-8")}"
+                val nameEscaped = upload.name.replace("\\", "\\\\").replace("\"", "\\\"")
+                sendResponse(socket, 200, "application/json", "{\"success\":true,\"url\":\"$url\",\"fileName\":\"$nameEscaped\"}")
             } else {
-                sendResponse(socket, 400, "application/json", """{"error":"invalid upload request"}""")
+                sendResponse(socket, 400, "application/json", "{\"error\":\"invalid upload request\"}")
             }
         } catch (e: Exception) {
-            sendResponse(socket, 500, "application/json", """{"error":"${e.message}"}""")
-        }
-    }
-
-    private fun handleChatRequest(socket: Socket, path: String, request: String) {
-        when {
-            path == "/chat/messages" -> handleGetMessages(socket)
-            path.startsWith("/chat/file/") -> {
-                val fileName = path.removePrefix("/chat/file/")
-                serveFileFromCache(socket, "chat_files/$fileName")
-            }
-            else -> sendResponse(socket, 404, "text/plain", "Not found")
+            sendResponse(socket, 500, "application/json", "{\"error\":\"${e.message}\"}")
         }
     }
 
@@ -250,7 +176,7 @@ class HttpFileServerService : Service() {
 
     private fun serveFileFromCache(socket: Socket, relativePath: String) {
         try {
-            val file = File(applicationContext.cacheDir, relativePath)
+            val file = File(applicationContext.filesDir, relativePath)
             if (!file.exists() || !file.isFile) {
                 sendResponse(socket, 404, "text/plain", "File not found")
                 return
@@ -277,35 +203,59 @@ class HttpFileServerService : Service() {
         }
     }
 
-    private fun readRequestBody(socket: Socket): String {
-        try {
-            val contentLength = try {
-                val buffer = ByteArray(1024)
-                val bytesRead = socket.inputStream.read(buffer)
-                if (bytesRead <= 0) return ""
-                val requestStr = String(buffer, 0, bytesRead)
-                val headersEnd = requestStr.indexOf("\r\n\r\n")
-                if (headersEnd > 0) {
-                    val headerSection = requestStr.substring(0, headersEnd)
-                    val clMatch = Regex("Content-Length:\\s*(\\d+)", RegexOption.IGNORE_CASE).find(headerSection)
-                    clMatch?.groups?.get(1)?.value?.toIntOrNull() ?: 0
-                } else {
-                    0
-                }
-            } catch (e: Exception) {
-                0
+    /**
+     * 从已读取的请求字节中提取 body。handleConnection 的首次 read 通常已把
+     * 「请求头 + body」整体读入 raw（短消息必然如此）；此处从 raw 切出 body，
+     * 仅在 body 超出首次读取时从流中补齐。绝不再对 socket 做无谓的第二次 read，
+     * 否则客户端发完即等响应、无更多数据，会永久阻塞导致请求 pending。
+     * 全程按字节处理，避免多字节字符导致 Content-Length 与字符串长度不匹配。
+     */
+    private fun readRequestBody(socket: Socket, raw: ByteArray, rawLen: Int): String {
+        return try {
+            val headerEnd = findHeaderEnd(raw, rawLen)
+            if (headerEnd < 0) return ""
+            val headerSection = String(raw, 0, headerEnd, StandardCharsets.UTF_8)
+            val bodyOffset = headerEnd + 4
+            val contentLength = Regex("Content-Length:\\s*(\\d+)", RegexOption.IGNORE_CASE)
+                .find(headerSection)?.groups?.get(1)?.value?.toIntOrNull() ?: 0
+
+            val alreadyRead = rawLen - bodyOffset
+            if (contentLength <= 0) {
+                return String(raw, bodyOffset, maxOf(0, alreadyRead), StandardCharsets.UTF_8)
+            }
+            if (alreadyRead >= contentLength) {
+                return String(raw, bodyOffset, contentLength, StandardCharsets.UTF_8)
             }
 
-            if (contentLength > 0) {
-                val bodyBuffer = CharArray(contentLength)
-                val reader = socket.inputStream.reader()
-                reader.read(bodyBuffer)
-                return String(bodyBuffer)
+            val remainder = contentLength - alreadyRead
+            val rest = ByteArray(remainder)
+            var read = 0
+            while (read < remainder) {
+                val n = socket.inputStream.read(rest, read, remainder - read)
+                if (n <= 0) break
+                read += n
             }
-            return ""
+            val full = ByteArray(alreadyRead + read)
+            System.arraycopy(raw, bodyOffset, full, 0, alreadyRead)
+            System.arraycopy(rest, 0, full, alreadyRead, read)
+            String(full, 0, alreadyRead + read, StandardCharsets.UTF_8)
         } catch (e: Exception) {
-            return ""
+            ""
         }
+    }
+
+    private fun findHeaderEnd(raw: ByteArray, len: Int): Int {
+        val end = len - 3
+        var i = 0
+        while (i < end) {
+            if (raw[i] == 13.toByte() && raw[i + 1] == 10.toByte() &&
+                raw[i + 2] == 13.toByte() && raw[i + 3] == 10.toByte()
+            ) {
+                return i
+            }
+            i++
+        }
+        return -1
     }
 
     private fun sendResponse(socket: Socket, statusCode: Int, contentType: String, content: String) {
@@ -363,6 +313,29 @@ class HttpFileServerService : Service() {
         }
     }
 
+    private fun getLocalIpAddress(): String {
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "127.0.0.1"
+            for (intf in interfaces) {
+                for (addr in intf.inetAddresses) {
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        return addr.hostAddress ?: continue
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting local ip", e)
+        }
+        return "127.0.0.1"
+    }
+
+    // ---------- WebSocket 转发服务器 ----------
+
+    private fun startWebSocketServer() {
+        if (wsServer != null) return
+        wsServer = ImWebSocketServer(wsPort, chatService).also { it.start() }
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -379,32 +352,10 @@ class HttpFileServerService : Service() {
 
     private fun buildNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("HTTP File Server")
-            .setContentText("Running on port $serverPort")
+            .setContentTitle("H4 IM Server")
+            .setContentText("HTTP :$serverPort  /  WS :$wsPort")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(true)
             .build()
-    }
-
-    private fun loadMessagesFile(): MutableList<ChatMessage> {
-        val messagesDir = File(applicationContext.cacheDir, "chat_messages")
-        val allMessages = mutableListOf<ChatMessage>()
-        messagesDir.listFiles()?.forEach { file ->
-            file.readText().takeIf { it.isNotBlank() }?.let { text ->
-                ChatSerializer.deserializeMessage(text)?.let { msg ->
-                    allMessages.add(msg)
-                }
-            }
-        }
-        return allMessages.sortedBy { it.timestamp }.toMutableList()
-    }
-
-    private fun saveMessagesFile(messages: List<ChatMessage>) {
-        val messagesDir = File(applicationContext.cacheDir, "chat_messages")
-        messagesDir.listFiles()?.forEach { it.delete() }
-        messages.forEach { msg ->
-            val file = File(messagesDir, "${msg.id}.json")
-            file.writeText(ChatSerializer.serializeSingle(msg))
-        }
     }
 }

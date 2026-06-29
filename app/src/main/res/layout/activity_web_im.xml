@@ -1,30 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:id="@+id/main"
-    android:background="@color/appBackground">
+    android:background="@color/appBackground"
+    android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/colorPrimary"
         android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="10dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="IM 即时通讯"
-            android:textColor="@android:color/white"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+        android:orientation="horizontal">
 
         <TextView
             android:id="@+id/server_url_text"
@@ -49,8 +36,7 @@
             android:layout_marginEnd="8dp"
             android:background="@android:drawable/edit_text"
             android:contentDescription="发送文件"
-            android:src="@android:drawable/ic_menu_upload"
-            android:tint="#D8F3EF" />
+            android:src="@android:drawable/ic_menu_upload" />
     </LinearLayout>
 
     <ScrollView

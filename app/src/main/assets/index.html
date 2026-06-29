@@ -15,6 +15,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .message.sent { align-self: flex-end; background: #0F766E; color: white; border-bottom-right-radius: 4px; }
 .message.received { align-self: flex-start; background: white; color: #14211D; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
 .message .time { font-size: 10px; opacity: 0.7; margin-top: 4px; text-align: right; }
+.message .source-label { font-size: 10px; opacity: 0.75; margin-bottom: 2px; }
 .message .file-info { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.1); padding: 8px; border-radius: 8px; margin-top: 6px; cursor: pointer; }
 .message .file-info:hover { background: rgba(0,0,0,0.2); }
 .message .file-info .file-name { font-size: 13px; font-weight: 500; }
@@ -29,7 +30,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .btn-send:disabled { background: #ccc; cursor: not-allowed; }
 .btn-file:active { transform: scale(0.95); }
 .btn-send:active { transform: scale(0.95); }
-.loading { text-align: center; padding: 20px; color: #5F6B67; }
 .error-banner { background: #fee; color: #c00; padding: 10px; text-align: center; font-size: 13px; }
 .hidden-input { display: none; }
 </style>
@@ -45,7 +45,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </div>
 <div id="errorBanner" class="error-banner" style="display:none"></div>
 <div class="chat-container" id="chatContainer">
-<div class="loading">正在加载消息...</div>
+<div class="loading">正在连接...</div>
 </div>
 <div class="input-area">
 <textarea id="messageInput" placeholder="输入消息..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
@@ -53,20 +53,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 </div>
 
 <script>
+let ws = null;
 let serverBase = '';
-let localId = '';
-let pollingInterval = null;
-let lastMessageId = 0;
-let pendingFile = null;
 
 function formatTime(ts) {
-    const d = new Date(ts);
-    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDate(ts) {
-    const d = new Date(ts);
-    return d.toLocaleDateString('zh-CN');
+    return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatFileSize(bytes) {
@@ -82,50 +73,72 @@ function showError(msg) {
     setTimeout(() => { banner.style.display = 'none'; }, 3000);
 }
 
-function updateServerInfo() {
-    document.getElementById('serverInfo').textContent = '本地: ' + localId.substring(0, 20) + '... | ' + serverBase;
-}
+// 页面由 HTTP 服务器在可达地址发出；消息走同主机的 WebSocket 端口。
+function connect() {
+    serverBase = window.location.origin;
+    const wsUrl = 'ws://' + window.location.hostname + ':8081';
+    document.getElementById('serverInfo').textContent = '网页端 · ' + serverBase;
 
-async function fetchServerInfo() {
     try {
-        const res = await fetch(serverBase + '/api/info');
-        const data = await res.json();
-        serverBase = data.baseUrl;
-        localId = data.localId;
-        updateServerInfo();
-        return true;
+        ws = new WebSocket(wsUrl);
     } catch (e) {
-        showError('无法连接服务器: ' + e.message);
-        return false;
+        showError('无法连接: ' + e.message);
+        return;
     }
+
+    ws.onopen = () => {
+        const loading = document.querySelector('.loading');
+        if (loading) loading.remove();
+        document.getElementById('serverInfo').textContent = '网页端 · 已连接 ' + serverBase;
+    };
+
+    // 收到的每条消息（含连接时推送的历史）均为「接收」侧，靠左显示。
+    ws.onmessage = (event) => {
+        try {
+            const msg = JSON.parse(event.data);
+            appendMessage(msg, false);
+        } catch (e) {
+            // 忽略无法解析的帧
+        }
+    };
+
+    ws.onclose = () => {
+        document.getElementById('serverInfo').textContent = '连接已断开，3s 后重连...';
+        setTimeout(connect, 3000);
+    };
+
+    ws.onerror = () => {
+        showError('连接错误');
+    };
 }
 
-function appendMessage(msg) {
+function appendMessage(msg, isSent) {
     const container = document.getElementById('chatContainer');
     if (msg.type === 'SYSTEM') {
         const div = document.createElement('div');
         div.className = 'system-msg';
         div.textContent = msg.content;
         container.appendChild(div);
-    } else {
-        const isSent = msg.sender === localId;
-        const div = document.createElement('div');
-        div.className = 'message ' + (isSent ? 'sent' : 'received');
-        
-        let contentHtml = '';
-        if (msg.type === 'FILE' && msg.fileName) {
-            contentHtml += '<div class="file-info" onclick="downloadFile(\'' + msg.filePath + '\')">';
-            contentHtml += '<span class="file-name">' + escapeHtml(msg.fileName) + '</span>';
-            contentHtml += '<span class="file-size">' + formatFileSize(msg.fileSize) + '</span>';
-            contentHtml += '</div>';
-        } else if (msg.content) {
-            contentHtml += escapeHtml(msg.content);
-        }
-        
-        contentHtml += '<div class="time">' + formatTime(msg.timestamp) + '</div>';
-        div.innerHTML = contentHtml;
-        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return;
     }
+    const div = document.createElement('div');
+    div.className = 'message ' + (isSent ? 'sent' : 'received');
+
+    let contentHtml = '<div class="source-label">' + (isSent ? '网页' : '手机') + '</div>';
+    if (msg.type === 'FILE' && msg.fileName) {
+        const fp = msg.fileUrl || (serverBase + '/files/' + encodeURIComponent(msg.fileName));
+        contentHtml += '<div class="file-info" onclick="downloadFile(\'' + fp + '\')">';
+        contentHtml += '<span class="file-name">' + escapeHtml(msg.fileName) + '</span>';
+        if (msg.fileSize) contentHtml += '<span class="file-size">' + formatFileSize(msg.fileSize) + '</span>';
+        contentHtml += '</div>';
+    } else if (msg.content) {
+        contentHtml += escapeHtml(msg.content);
+    }
+
+    contentHtml += '<div class="time">' + formatTime(msg.timestamp) + '</div>';
+    div.innerHTML = contentHtml;
+    container.appendChild(div);
     container.scrollTop = container.scrollHeight;
 }
 
@@ -135,108 +148,60 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-async function downloadFile(filePath) {
-    try {
-        const link = document.createElement('a');
-        link.href = serverBase + filePath;
-        link.download = filePath.split('/').pop();
-        link.click();
-    } catch (e) {
-        showError('下载失败: ' + e.message);
-    }
+function downloadFile(url) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '';
+    link.click();
 }
 
-async function sendMessage() {
+function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
-    if (!text && !pendingFile) return;
-
-    const receiver = 'server';
-    const msg = {
-        sender: localId,
-        receiver: receiver,
-        type: 'TEXT',
-        content: text || '已发送文件: ' + (pendingFile ? pendingFile.name : ''),
-        timestamp: Date.now(),
-        fileName: pendingFile ? pendingFile.name : null,
-        fileSize: pendingFile ? pendingFile.size : 0,
-        filePath: pendingFile ? '/chat/file/' + pendingFile.name : null
-    };
-
+    if (!text) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showError('未连接');
+        return;
+    }
+    const msg = { type: 'TEXT', content: text, timestamp: Date.now() };
+    ws.send(JSON.stringify(msg));
+    appendMessage(msg, true);   // 自己发的靠右显示
     input.value = '';
     input.style.height = 'auto';
-
-    try {
-        const res = await fetch(serverBase + '/api/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(msg)
-        });
-        if (res.ok) {
-            appendMessage(msg);
-            if (pendingFile) {
-                pendingFile = null;
-            }
-        } else {
-            showError('发送失败');
-        }
-    } catch (e) {
-        showError('发送失败: ' + e.message);
-    }
 }
 
-async function handleFileSelect(event) {
+function handleFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
-    pendingFile = file;
-    
+    if (!ws || ws.readyState !== WebSocket.OPEN) { showError('未连接'); return; }
+
     const reader = new FileReader();
     reader.onload = async function(e) {
         try {
+            // 文件统一走 HTTP 上传到安卓端，拿到 http 地址后再通过 socket 发送 FILE 消息。
             const res = await fetch(serverBase + '/api/upload', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: file.name, data: e.target.result })
             });
-            if (res.ok) {
-                const msg = {
-                    sender: localId,
-                    receiver: 'server',
-                    type: 'FILE',
-                    content: '',
-                    timestamp: Date.now(),
-                    fileName: file.name,
-                    fileSize: file.size,
-                    filePath: '/files/' + file.name
-                };
-                appendMessage(msg);
-                pendingFile = null;
-            } else {
-                showError('文件上传失败');
-            }
+            const data = await res.json();
+            if (!res.ok || !data.url) { showError('文件上传失败'); return; }
+            const msg = {
+                type: 'FILE',
+                content: '',
+                timestamp: Date.now(),
+                fileName: file.name,
+                fileSize: file.size,
+                fileUrl: data.url
+            };
+            ws.send(JSON.stringify(msg));
+            appendMessage(msg, true);
         } catch (err) {
             showError('文件上传失败: ' + err.message);
         }
     };
     reader.readAsDataURL(file);
     event.target.value = '';
-}
-
-async function pollMessages() {
-    try {
-        const res = await fetch(serverBase + '/api/messages');
-        if (res.ok) {
-            const messages = await res.json();
-            messages.forEach(msg => {
-                if (msg.id > lastMessageId) {
-                    appendMessage(msg);
-                    lastMessageId = msg.id;
-                }
-            });
-        }
-    } catch (e) {
-        // silently fail during polling
-    }
 }
 
 function handleKeyDown(e) {
@@ -246,34 +211,12 @@ function handleKeyDown(e) {
     }
 }
 
-// Auto-resize textarea
 document.getElementById('messageInput').addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 100) + 'px';
 });
 
-async function init() {
-    serverBase = 'http://' + location.hostname + ':' + (location.port || 8080);
-    
-    if (!await fetchServerInfo()) {
-        setInterval(async () => {
-            if (await fetchServerInfo()) {
-                startPolling();
-            }
-        }, 3000);
-        return;
-    }
-    
-    startPolling();
-}
-
-function startPolling() {
-    if (pollingInterval) clearInterval(pollingInterval);
-    pollingInterval = setInterval(pollMessages, 2000);
-    pollMessages();
-}
-
-init();
+connect();
 </script>
 </body>
 </html>

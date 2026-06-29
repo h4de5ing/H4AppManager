@@ -1,4 +1,8 @@
 # Add project specific ProGuard rules here.
+
+# Java-WebSocket (org.java-websocket) — keep public API used via reflection.
+-keep class org.java_websocket.** { *; }
+-dontwarn org.java_websocket.**
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.
 #

@@ -61,4 +61,5 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okio)
+    implementation(libs.websockets)
 }

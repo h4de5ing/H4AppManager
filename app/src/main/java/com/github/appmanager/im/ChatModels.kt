@@ -2,43 +2,25 @@ package com.github.appmanager.im
 
 import kotlinx.serialization.Serializable
 
+/**
+ * 聊天室消息。这是唯一会被序列化的对象：客户端把它序列化成一行 JSON 通过
+ * WebSocket 发出，服务器原样转发（落盘 + 广播给其他连接），不做任何身份识别、
+ * 不附加任何信封。客户端自己发的靠右显示，从 socket 收到的靠左显示，因此无需
+ * sender/source 等身份字段。
+ */
 @Serializable
-data class ChatMessage(
-    val id: Long = System.currentTimeMillis(),
-    val sender: String,
-    val receiver: String,
-    val type: MessageType,
+data class RoomMessage(
+    val type: String,            // "TEXT" | "FILE" | "SYSTEM"
     val content: String,
     val timestamp: Long = System.currentTimeMillis(),
     val fileName: String? = null,
-    val fileSize: Long = 0L,
-    val filePath: String? = null,
-    val status: MessageStatus = MessageStatus.SENT
+    val fileSize: Long? = null,
+    val fileUrl: String? = null
 )
 
+/** 文件上传请求体：name 为文件名，data 为 data URL（data:...;base64,xxxx）。 */
 @Serializable
-enum class MessageType {
-    TEXT, FILE, IMAGE, SYSTEM
-}
-
-@Serializable
-enum class MessageStatus {
-    SENT, DELIVERED, READ, FAILED
-}
-
-@Serializable
-data class ChatSession(
-    val id: String,
-    val participants: List<String>,
-    val lastMessage: ChatMessage? = null,
-    val updatedAt: Long = System.currentTimeMillis()
-)
-
-@Serializable
-data class FileInfo(
+data class UploadRequest(
     val name: String,
-    val path: String,
-    val size: Long,
-    val mimeType: String,
-    val uploadedAt: Long = System.currentTimeMillis()
+    val data: String
 )
