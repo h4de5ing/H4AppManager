@@ -2,8 +2,6 @@ package com.github.appmanager.im
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 
 class ChatService(private val context: Context) {
@@ -32,8 +30,8 @@ class ChatService(private val context: Context) {
 
     fun getDeviceId(): String = localDeviceId
 
-    suspend fun sendMessage(message: ChatMessage, port: Int): Result<Boolean> = withContext(Dispatchers.IO) {
-        runCatching {
+    fun sendMessage(message: ChatMessage, port: Int): Result<Boolean> {
+        return runCatching {
             val messages = loadMessages()
             val updatedMessage = message.copy(id = System.currentTimeMillis())
             messages.add(updatedMessage)
@@ -45,8 +43,8 @@ class ChatService(private val context: Context) {
         }
     }
 
-    suspend fun getMessages(receiver: String? = null): List<ChatMessage> = withContext(Dispatchers.IO) {
-        runCatching {
+    fun getMessages(receiver: String? = null): List<ChatMessage> {
+        return try {
             val messages = loadMessages()
             if (receiver != null) {
                 messages.filter { it.sender == localDeviceId && it.receiver == receiver ||
@@ -54,11 +52,13 @@ class ChatService(private val context: Context) {
             } else {
                 messages.filter { it.sender == localDeviceId || it.receiver == localDeviceId }
             }
-        }.getOrDefault(emptyList())
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
-    suspend fun uploadFile(fileName: String, fileSize: Long, filePath: String): Result<FileInfo> = withContext(Dispatchers.IO) {
-        runCatching {
+    fun uploadFile(fileName: String, fileSize: Long, filePath: String): Result<FileInfo> {
+        return runCatching {
             val sourceFile = File(filePath)
             val destFile = File(filesDir, fileName)
             sourceFile.copyTo(destFile, overwrite = true)
@@ -69,14 +69,16 @@ class ChatService(private val context: Context) {
         }
     }
 
-    suspend fun getFileList(): List<FileInfo> = withContext(Dispatchers.IO) {
-        runCatching {
+    fun getFileList(): List<FileInfo> {
+        return try {
             getFileListSync()
-        }.getOrDefault(emptyList())
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
-    suspend fun deleteFile(fileName: String): Result<Boolean> = withContext(Dispatchers.IO) {
-        runCatching {
+    fun deleteFile(fileName: String): Result<Boolean> {
+        return runCatching {
             File(filesDir, fileName).delete()
         }
     }

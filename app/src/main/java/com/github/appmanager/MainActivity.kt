@@ -1,7 +1,7 @@
 package com.github.appmanager
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
-import android.app.Service
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.text.format.Formatter
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,7 +24,6 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Switch
 import android.widget.TextView
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity() {
 
     private fun PackageInfo.toInstalledAppOrNull(): InstalledApp? {
         val appInfo = applicationInfo ?: return null
-        val label = appInfo.loadLabel(packageManager)?.toString()?.takeIf { it.isNotBlank() }
+        val label = appInfo.loadLabel(packageManager).toString().takeIf { it.isNotBlank() }
             ?: packageName
         val apkPath = appInfo.sourceDir.orEmpty()
         val apkFile = apkPath.takeIf { it.isNotBlank() }?.let(::File)
@@ -380,6 +380,7 @@ class MainActivity : ComponentActivity() {
 
         override fun getItemCount(): Int = items.size
 
+        @SuppressLint("NotifyDataSetChanged")
         fun submitList(newItems: List<InstalledApp>) {
             items.clear()
             items.addAll(newItems)

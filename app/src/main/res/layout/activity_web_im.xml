@@ -3,22 +3,75 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:id="@+id/main">
+    android:id="@+id/main"
+    android:background="@color/appBackground">
 
-    <WebView
-        android:id="@+id/webView"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="wrap_content"
+        android:background="@color/colorPrimary"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="IM 即时通讯"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/receiver_spinner"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginEnd="8dp"
+            android:background="@android:drawable/btn_dropdown"
+            android:minWidth="120dp" />
+
+        <ImageButton
+            android:id="@+id/file_button"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_marginEnd="8dp"
+            android:background="@android:drawable/edit_text"
+            android:contentDescription="发送文件"
+            android:src="@android:drawable/ic_menu_upload"
+            android:tint="#D8F3EF" />
+    </LinearLayout>
+
+    <ScrollView
+        android:id="@+id/message_scroll_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:padding="8dp">
+
+        <LinearLayout
+            android:id="@+id/message_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:orientation="vertical" />
+    </ScrollView>
 
     <LinearLayout
         android:id="@+id/status_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:visibility="gone">
 
         <ProgressBar
+            android:id="@+id/progress_bar"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:indeterminateTint="#0F766E" />
@@ -27,19 +80,50 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="正在启动IM服务..."
-            android:textColor="#14211D"
-            android:textSize="16sp" />
+            android:text="正在加载聊天记录..."
+            android:textColor="#5F6B67"
+            android:textSize="14sp" />
 
         <Button
             android:id="@+id/retry_btn"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="重试"
             android:backgroundTint="#0F766E"
+            android:text="重试"
             android:textColor="#FFFFFF"
             android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <EditText
+            android:id="@+id/message_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@android:drawable/edit_text"
+            android:hint="输入消息..."
+            android:inputType="textMultiLine"
+            android:maxLines="4"
+            android:minHeight="40dp"
+            android:padding="8dp" />
+
+        <ImageButton
+            android:id="@+id/send_button"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@android:drawable/edit_text"
+            android:contentDescription="发送"
+            android:src="@android:drawable/ic_menu_send"
+            android:tint="#0F766E" />
     </LinearLayout>
 
 </LinearLayout>
