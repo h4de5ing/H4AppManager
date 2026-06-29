@@ -156,8 +156,9 @@ class HttpFileServerService : Service() {
     }
 
     private fun handleGetMessages(socket: Socket) {
-        val messages = chatService.getAllMessagesJson(serverPort)
-        sendResponse(socket, 200, "application/json", messages)
+        val messages = loadMessagesFile()
+        val json = ChatSerializer.serializeMessageList(messages)
+        sendResponse(socket, 200, "application/json", json)
     }
 
     private fun handlePostMessage(socket: Socket) {
@@ -169,6 +170,7 @@ class HttpFileServerService : Service() {
                 val messages = loadMessagesFile()
                 messages.add(newMsg)
                 saveMessagesFile(messages)
+                chatService.updateSession(newMsg)
                 sendResponse(socket, 200, "application/json", "{\"success\":true}")
             } else {
                 sendResponse(socket, 400, "application/json", "{\"error\":\"invalid message\"}")
@@ -190,8 +192,17 @@ class HttpFileServerService : Service() {
 
     private fun handleGetInfo(socket: Socket) {
         val localId = chatService.getDeviceId()
-        val info = """{"baseUrl":"http://127.0.0.1:$serverPort","localId":"$localId","port":$serverPort}"""
+        val clientIp = getSocketIpAddress(socket)
+        val info = """{"baseUrl":"http://$clientIp:$serverPort","localId":"$localId","port":$serverPort}"""
         sendResponse(socket, 200, "application/json", info)
+    }
+
+    private fun getSocketIpAddress(socket: Socket): String {
+        try {
+            return socket.inetAddress.hostAddress ?: "127.0.0.1"
+        } catch (e: Exception) {
+            return "127.0.0.1"
+        }
     }
 
     private fun handleUpload(socket: Socket) {
@@ -199,9 +210,12 @@ class HttpFileServerService : Service() {
             val body = readRequestBody(socket)
             val uploadData = ChatSerializer.deserializeMessage(body)
             if (uploadData != null && uploadData.filePath != null) {
-                val file = File(uploadData.filePath)
-                if (file.exists()) {
-                    sendResponse(socket, 200, "application/json", """{"success":true,"fileName":"${file.name}"}""")
+                val srcFile = File(uploadData.filePath)
+                if (srcFile.exists()) {
+                    val destFile = File(chatService.getFilesDir2(), srcFile.name)
+                    srcFile.copyTo(destFile, overwrite = true)
+                    chatService.uploadFile(srcFile.name, srcFile.length(), destFile.absolutePath)
+                    sendResponse(socket, 200, "application/json", """{"success":true,"fileName":"${srcFile.name}"}""")
                 } else {
                     sendResponse(socket, 404, "application/json", """{"error":"file not found"}""")
                 }

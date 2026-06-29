@@ -20,6 +20,8 @@ class ChatService(private val context: Context) {
         File(context.cacheDir, FILES_DIR).apply { mkdirs() }
     }
 
+    fun getFilesDir2(): File = filesDir
+
     private val sessionsFile: File by lazy {
         File(context.cacheDir, SESSIONS_FILE)
     }
@@ -120,7 +122,7 @@ class ChatService(private val context: Context) {
         sessionsFile.writeText(ChatSerializer.serializeSessionList(sessions))
     }
 
-    private fun updateSession(message: ChatMessage) {
+    fun updateSession(message: ChatMessage) {
         val sessions = loadSessions()
         val sessionId = getSessionId(message.sender, message.receiver)
         val idx = sessions.indexOfFirst { it.id == sessionId }
