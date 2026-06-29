@@ -4,6 +4,7 @@ val javaVersion = JavaVersion.toVersion(libs.versions.java.get())
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -14,8 +15,8 @@ android {
         applicationId = "com.github.appmanager2"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 21
+        versionName = "2.1"
     }
 
     signingConfigs {
@@ -58,4 +59,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okio)
 }

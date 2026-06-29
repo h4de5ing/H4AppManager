@@ -36,6 +36,21 @@
             android:text="@string/app_count_initial"
             android:textColor="#D8F3EF"
             android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/im_button"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="8dp"
+            android:background="@android:drawable/dialog_holo_light_frame"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="IM"
+            android:textColor="#D8F3EF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout

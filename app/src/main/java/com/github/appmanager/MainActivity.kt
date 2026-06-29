@@ -1,6 +1,11 @@
 package com.github.appmanager
 
 import android.app.AlertDialog
+import android.app.Service
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -8,14 +13,17 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.text.format.Formatter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Switch
 import android.widget.TextView
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +53,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var titleCountView: TextView
     private lateinit var searchInput: EditText
     private lateinit var showSystemAppsSwitch: Switch
+    private lateinit var imButton: Button
+
+    private var isServerBound = false
+    private var serverConnection: ServiceConnection? = null
 
     private val exportApkLauncher =
         registerForActivityResult(
@@ -85,7 +97,13 @@ class MainActivity : ComponentActivity() {
             applyFilters()
         }
 
+        imButton = findViewById(R.id.im_button)
+        imButton.setOnClickListener {
+            startImServiceAndActivity()
+        }
+
         loadApps()
+        startHttpFileServer()
     }
 
     private fun loadApps() {
@@ -238,6 +256,60 @@ class MainActivity : ComponentActivity() {
         return DateFormat.getDateTimeInstance().format(Date(timeMillis))
     }
 
+    private fun startHttpFileServer() {
+        try {
+            val intent = Intent(this, HttpFileServerService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            serverConnection = object : ServiceConnection {
+                override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                    isServerBound = true
+                    Log.d("MainActivity", "HTTP File Server service bound")
+                }
+                override fun onServiceDisconnected(name: ComponentName?) {
+                    isServerBound = false
+                    Log.d("MainActivity", "HTTP File Server service unbound")
+                }
+            }.also { conn ->
+                bindService(intent, conn, Context.BIND_AUTO_CREATE)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to start HTTP server", e)
+        }
+    }
+
+    private fun startImServiceAndActivity() {
+        try {
+            val intent = Intent(this, HttpFileServerService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            Thread.sleep(500)
+            val imIntent = Intent(this, WebImActivity::class.java)
+            imIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(imIntent)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to start IM", e)
+            Toast.makeText(this, "启动IM服务失败", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun stopHttpFileServer() {
+        try {
+            serverConnection?.let { conn ->
+                unbindService(conn)
+                isServerBound = false
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to stop server", e)
+        }
+    }
+
     private fun optimizeSystemBars() {
         window.statusBarColor = getColor(R.color.colorPrimaryDark)
         window.navigationBarColor = getColor(R.color.surface)
@@ -274,6 +346,22 @@ class MainActivity : ComponentActivity() {
         val digest = MessageDigest.getInstance(algorithm).digest(bytes)
         return digest.joinToString(separator = ":") { byte ->
             "%02X".format(byte)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            serverConnection?.let { conn ->
+                unbindService(conn)
+                isServerBound = false
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Failed to unbind service", e)
         }
     }
 
