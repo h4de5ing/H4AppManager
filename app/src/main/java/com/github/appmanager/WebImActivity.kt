@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -28,6 +29,9 @@ import com.github.appmanager.im.ChatMessage
 import com.github.appmanager.im.ChatService
 import com.github.appmanager.im.MessageType
 import java.io.File
+import java.net.InetAddress
+import java.net.NetworkInterface
+import java.util.Collections
 
 class WebImActivity : ComponentActivity() {
     companion object {
@@ -48,6 +52,8 @@ class WebImActivity : ComponentActivity() {
     private lateinit var statusView: View
     private lateinit var retryBtn: Button
     private lateinit var progressBar: ProgressBar
+    private lateinit var serverUrlText: TextView
+    private var serverUrl: String = ""
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -84,9 +90,10 @@ class WebImActivity : ComponentActivity() {
         statusView = findViewById(R.id.status_view)
         retryBtn = findViewById(R.id.retry_btn)
         progressBar = findViewById(R.id.progress_bar)
-
+        serverUrlText = findViewById(R.id.server_url_text)
         currentReceiver = intent.getStringExtra("receiver") ?: chatService.getDeviceId()
-
+        serverUrl = buildServerUrl()
+        serverUrlText.text = serverUrl
         setupReceiverSpinner()
         setupListeners()
         checkAndStartServer()
@@ -329,6 +336,52 @@ class WebImActivity : ComponentActivity() {
         statusView.visibility = View.GONE
         loadMessages()
     }
+
+    private fun buildServerUrl(): String {
+        val port = HttpFileServerService.serverPort
+        val ipAddress = getLocalIpAddress()
+        return "http://$ipAddress:$port"
+    }
+
+    private fun getLocalIpAddress(): String {
+        try {
+            val wifiManager = application.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val wifiInfo = wifiManager.connectionInfo
+            val ipInt = wifiInfo.ipAddress
+            if (ipInt != 0) {
+                return InetAddress.getByAddress(
+                    byteArrayOf(
+                        ipInt.toByte(),
+                        (ipInt shr 8).toByte(),
+                        (ipInt shr 16).toByte(),
+                        (ipInt shr 24).toByte()
+                    )
+                ).hostAddress ?: "127.0.0.1"
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get WiFi IP", e)
+        }
+
+        try {
+            val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+            for (nic in interfaces) {
+                val addresses = Collections.list(nic.inetAddresses)
+                for (addr in addresses) {
+                    if (!addr.isLoopbackAddress && addr is InetAddress) {
+                        val ip = addr.hostAddress ?: continue
+                        if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
+                            return ip
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get network IP", e)
+        }
+
+        return "127.0.0.1"
+    }
+
 
     override fun onResume() {
         super.onResume()

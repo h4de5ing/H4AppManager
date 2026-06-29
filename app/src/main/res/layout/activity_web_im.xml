@@ -26,6 +26,14 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/server_url_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:textColor="#D8F3EF"
+            android:textSize="11sp" />
+
         <Spinner
             android:id="@+id/receiver_spinner"
             android:layout_width="wrap_content"
