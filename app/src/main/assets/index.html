@@ -96,6 +96,10 @@ function connect() {
     ws.onmessage = (event) => {
         try {
             const msg = JSON.parse(event.data);
+            if (msg.type === 'CLEAR') {
+                document.getElementById('chatContainer').innerHTML = '';
+                return;
+            }
             appendMessage(msg, false);
         } catch (e) {
             // 忽略无法解析的帧
@@ -220,3 +224,4 @@ connect();
 </script>
 </body>
 </html>
+

@@ -5,16 +5,17 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.github.appmanager.im.ChatSerializer
 import com.github.appmanager.im.ChatService
-import java.io.File
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
@@ -22,9 +23,10 @@ class HttpFileServerService : Service() {
     companion object {
         const val TAG = "HttpFileServerService"
         const val CHANNEL_ID = "HttpFileServerChannel"
-        var serverPort: Int = 8080          // HTTP：页面 / 文件上传 / 文件下载
-        var wsPort: Int = 8081              // WebSocket：消息实时转发
-        private var serverRunning = false
+        var serverPort: Int = 8080
+        var wsPort: Int = 8081
+        @Volatile
+        private var httpRunning = false
         private var serverThread: Thread? = null
     }
 
@@ -40,23 +42,20 @@ class HttpFileServerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!serverRunning) {
-            serverRunning = true
-            serverThread = Thread { runHttpServer() }.apply { start() }
-            startWebSocketServer()
-        }
+        startHttpServerIfNeeded()
+        startWebSocketServerIfNeeded()
         return START_STICKY
     }
 
     override fun onDestroy() {
-        serverRunning = false
+        httpRunning = false
         try {
             serverSocket?.close()
         } catch (e: Exception) {
             Log.e(TAG, "Error closing server socket", e)
         }
         try {
-            wsServer?.stop()
+            wsServer?.stop(1000)
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping websocket server", e)
         }
@@ -66,67 +65,84 @@ class HttpFileServerService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // ---------- HTTP 服务器（仅静态页面 / info / 文件上传 / 文件下载） ----------
+    @Synchronized
+    private fun startHttpServerIfNeeded() {
+        if (httpRunning && serverThread?.isAlive == true) return
+        httpRunning = true
+        serverThread = Thread { runHttpServer() }.apply {
+            name = "H4HttpServer"
+            isDaemon = true
+            start()
+        }
+    }
 
     private fun runHttpServer() {
         try {
-            serverSocket = ServerSocket(serverPort)
+            serverSocket = ServerSocket().apply {
+                reuseAddress = true
+                bind(java.net.InetSocketAddress("0.0.0.0", serverPort))
+            }
             Log.i(TAG, "HTTP Server started on port $serverPort")
 
-            while (serverRunning) {
+            while (httpRunning) {
                 try {
                     val socket = serverSocket?.accept()
                     if (socket != null) {
-                        Thread { handleConnection(socket) }.start()
+                        Thread { handleConnection(socket) }.apply {
+                            name = "H4HttpClient"
+                            isDaemon = true
+                            start()
+                        }
                     }
                 } catch (e: Exception) {
-                    if (serverRunning) {
+                    if (httpRunning) {
                         Log.e(TAG, "Error accepting connection", e)
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Server error", e)
+        } finally {
+            httpRunning = false
+            serverThread = null
         }
     }
 
     private fun handleConnection(socket: Socket) {
         try {
-            val buffer = ByteArray(4096)
+            socket.soTimeout = 15000
+            val buffer = ByteArray(8192)
             val bytesRead = socket.inputStream.read(buffer)
             if (bytesRead <= 0) return
 
-            val request = String(buffer, 0, bytesRead)
-            val firstLine = request.lines().firstOrNull() ?: ""
+            val request = String(buffer, 0, bytesRead, StandardCharsets.UTF_8)
+            val firstLine = request.lineSequence().firstOrNull().orEmpty()
             val parts = firstLine.split(Regex("\\s+"))
             if (parts.size < 2) return
 
-            val method = parts[0]
-            val rawPath = parts[1]
-            val path = decodeUri(rawPath)
+            val method = parts[0].uppercase()
+            val rawPathOnly = parts[1].substringBefore('?')
+            val path = decodeUri(rawPathOnly)
+
+            if (method == "OPTIONS") {
+                sendResponse(socket, 204, "text/plain", "")
+                return
+            }
 
             if (method != "GET" && method != "POST") {
                 sendResponse(socket, 405, "text/plain", "Method not allowed")
-                socket.close()
                 return
             }
 
             when {
-                path == "/" || path == "/index.html" -> {
-                    serveAsset(socket, "index.html", "text/html")
+                path == "/" || path == "/index.html" -> serveAsset(socket, "index.html", "text/html; charset=utf-8")
+                path == "/api/info" -> handleGetInfo(socket)
+                path.startsWith("/api/upload") && method == "POST" -> handleUpload(socket, buffer, bytesRead)
+                rawPathOnly.startsWith("/files/") -> {
+                    val fileName = decodeUri(rawPathOnly.removePrefix("/files/"))
+                    serveFileFromCache(socket, fileName)
                 }
-                path == "/api/info" -> {
-                    handleGetInfo(socket)
-                }
-                path.startsWith("/api/upload") && method == "POST" -> {
-                    handleUpload(socket, buffer, bytesRead)
-                }
-                path.startsWith("/files/") -> {
-                    serveFileFromCache(socket, "chat_files/" + path.removePrefix("/files/"))
-                }
-                else -> {
-                    sendResponse(socket, 404, "text/plain", "Not found")
-                }
+                else -> sendResponse(socket, 404, "text/plain", "Not found")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error handling connection", e)
@@ -140,76 +156,72 @@ class HttpFileServerService : Service() {
     }
 
     private fun handleGetInfo(socket: Socket) {
-        val localId = chatService.getDeviceId()
+        val localId = jsonEscape(chatService.getDeviceId())
         val serverIp = getLocalIpAddress()
-        val info = """{"baseUrl":"http://$serverIp:$serverPort","wsUrl":"ws://$serverIp:$wsPort","localId":"$localId"}"""
-        sendResponse(socket, 200, "application/json", info)
+        val info = "{\"baseUrl\":\"http://$serverIp:$serverPort\",\"wsUrl\":\"ws://$serverIp:$wsPort\",\"localId\":\"$localId\"}"
+        sendResponse(socket, 200, "application/json; charset=utf-8", info)
     }
 
     private fun handleUpload(socket: Socket, raw: ByteArray, rawLen: Int) {
         try {
             val body = readRequestBody(socket, raw, rawLen)
             val upload = ChatSerializer.deserializeUpload(body)
-            if (upload != null) {
-                chatService.storeUploadedFile(upload.name, upload.data)
-                val serverIp = getLocalIpAddress()
-                val url = "http://$serverIp:$serverPort/files/${URLDecoder.decode(upload.name, "UTF-8")}"
-                val nameEscaped = upload.name.replace("\\", "\\\\").replace("\"", "\\\"")
-                sendResponse(socket, 200, "application/json", "{\"success\":true,\"url\":\"$url\",\"fileName\":\"$nameEscaped\"}")
-            } else {
+            if (upload == null) {
                 sendResponse(socket, 400, "application/json", "{\"error\":\"invalid upload request\"}")
+                return
             }
+
+            val storedName = chatService.storeUploadedFile(upload.name, upload.data)
+            val serverIp = getLocalIpAddress()
+            val url = "http://$serverIp:$serverPort/files/${Uri.encode(storedName)}"
+            sendResponse(
+                socket,
+                200,
+                "application/json; charset=utf-8",
+                "{\"success\":true,\"url\":\"${jsonEscape(url)}\",\"fileName\":\"${jsonEscape(storedName)}\"}"
+            )
         } catch (e: Exception) {
-            sendResponse(socket, 500, "application/json", "{\"error\":\"${e.message}\"}")
+            Log.e(TAG, "Upload failed", e)
+            sendResponse(socket, 500, "application/json", "{\"error\":\"${jsonEscape(e.message ?: "upload failed")}\"}")
         }
     }
 
     private fun serveAsset(socket: Socket, assetName: String, contentType: String) {
         try {
-            val inputStream = assets.open(assetName)
-            val content = inputStream.bufferedReader().readText()
+            val content = assets.open(assetName).use { input ->
+                input.readBytes().toString(StandardCharsets.UTF_8)
+            }
             sendResponse(socket, 200, contentType, content)
         } catch (e: Exception) {
             sendResponse(socket, 404, "text/plain", "Asset not found: $assetName")
         }
     }
 
-    private fun serveFileFromCache(socket: Socket, relativePath: String) {
+    private fun serveFileFromCache(socket: Socket, fileName: String) {
         try {
-            val file = File(applicationContext.filesDir, relativePath)
-            if (!file.exists() || !file.isFile) {
+            val file = chatService.getSharedFile(fileName)
+            if (file == null || !file.exists() || !file.isFile) {
                 sendResponse(socket, 404, "text/plain", "File not found")
                 return
             }
 
-            val mimeType = getMimeType(file.name)
-            val fileLength = file.length()
-
             val response = StringBuilder()
             response.append("HTTP/1.1 200 OK\r\n")
-            response.append("Content-Type: $mimeType\r\n")
-            response.append("Content-Length: $fileLength\r\n")
+            response.append("Content-Type: ${getMimeType(file.name)}\r\n")
+            response.append("Content-Length: ${file.length()}\r\n")
+            response.append("Content-Disposition: attachment; filename*=UTF-8''${Uri.encode(file.name)}\r\n")
             response.append("Access-Control-Allow-Origin: *\r\n")
             response.append("Connection: close\r\n")
             response.append("\r\n")
 
             socket.outputStream.write(response.toString().toByteArray(StandardCharsets.UTF_8))
-            file.inputStream().use { input ->
-                input.copyTo(socket.outputStream)
-            }
+            file.inputStream().use { input -> input.copyTo(socket.outputStream) }
             socket.outputStream.flush()
         } catch (e: Exception) {
             sendResponse(socket, 500, "text/plain", "Error serving file: ${e.message}")
         }
     }
 
-    /**
-     * 从已读取的请求字节中提取 body。handleConnection 的首次 read 通常已把
-     * 「请求头 + body」整体读入 raw（短消息必然如此）；此处从 raw 切出 body，
-     * 仅在 body 超出首次读取时从流中补齐。绝不再对 socket 做无谓的第二次 read，
-     * 否则客户端发完即等响应、无更多数据，会永久阻塞导致请求 pending。
-     * 全程按字节处理，避免多字节字符导致 Content-Length 与字符串长度不匹配。
-     */
     private fun readRequestBody(socket: Socket, raw: ByteArray, rawLen: Int): String {
         return try {
             val headerEnd = findHeaderEnd(raw, rawLen)
@@ -219,9 +231,9 @@ class HttpFileServerService : Service() {
             val contentLength = Regex("Content-Length:\\s*(\\d+)", RegexOption.IGNORE_CASE)
                 .find(headerSection)?.groups?.get(1)?.value?.toIntOrNull() ?: 0
 
-            val alreadyRead = rawLen - bodyOffset
+            val alreadyRead = maxOf(0, rawLen - bodyOffset)
             if (contentLength <= 0) {
-                return String(raw, bodyOffset, maxOf(0, alreadyRead), StandardCharsets.UTF_8)
+                return if (alreadyRead > 0) String(raw, bodyOffset, alreadyRead, StandardCharsets.UTF_8) else ""
             }
             if (alreadyRead >= contentLength) {
                 return String(raw, bodyOffset, contentLength, StandardCharsets.UTF_8)
@@ -239,7 +251,10 @@ class HttpFileServerService : Service() {
             System.arraycopy(raw, bodyOffset, full, 0, alreadyRead)
             System.arraycopy(rest, 0, full, alreadyRead, read)
             String(full, 0, alreadyRead + read, StandardCharsets.UTF_8)
+        } catch (e: SocketTimeoutException) {
+            ""
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to read request body", e)
             ""
         }
     }
@@ -262,6 +277,7 @@ class HttpFileServerService : Service() {
         try {
             val statusText = when (statusCode) {
                 200 -> "OK"
+                204 -> "No Content"
                 400 -> "Bad Request"
                 404 -> "Not Found"
                 405 -> "Method Not Allowed"
@@ -275,13 +291,15 @@ class HttpFileServerService : Service() {
             response.append("Content-Type: $contentType\r\n")
             response.append("Content-Length: ${contentBytes.size}\r\n")
             response.append("Access-Control-Allow-Origin: *\r\n")
-            response.append("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n")
+            response.append("Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n")
             response.append("Access-Control-Allow-Headers: Content-Type\r\n")
             response.append("Connection: close\r\n")
             response.append("\r\n")
 
             socket.outputStream.write(response.toString().toByteArray(StandardCharsets.UTF_8))
-            socket.outputStream.write(contentBytes)
+            if (contentBytes.isNotEmpty()) {
+                socket.outputStream.write(contentBytes)
+            }
             socket.outputStream.flush()
         } catch (e: Exception) {
             Log.e(TAG, "Error sending response", e)
@@ -296,19 +314,39 @@ class HttpFileServerService : Service() {
         }
     }
 
+    private fun jsonEscape(value: String): String {
+        return buildString {
+            value.forEach { ch ->
+                when (ch) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '\b' -> append("\\b")
+                    '\u000C' -> append("\\f")
+                    '\n' -> append("\\n")
+                    '\r' -> append("\\r")
+                    '\t' -> append("\\t")
+                    else -> {
+                        if (ch.code < 0x20) append("\\u%04x".format(ch.code)) else append(ch)
+                    }
+                }
+            }
+        }
+    }
+
     private fun getMimeType(fileName: String): String {
+        val lower = fileName.lowercase()
         return when {
-            fileName.endsWith(".html") -> "text/html"
-            fileName.endsWith(".css") -> "text/css"
-            fileName.endsWith(".js") -> "application/javascript"
-            fileName.endsWith(".json") -> "application/json"
-            fileName.endsWith(".png") -> "image/png"
-            fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") -> "image/jpeg"
-            fileName.endsWith(".gif") -> "image/gif"
-            fileName.endsWith(".ico") -> "image/x-icon"
-            fileName.endsWith(".txt") -> "text/plain"
-            fileName.endsWith(".pdf") -> "application/pdf"
-            fileName.endsWith(".apk") -> "application/vnd.android.package-archive"
+            lower.endsWith(".html") -> "text/html; charset=utf-8"
+            lower.endsWith(".css") -> "text/css; charset=utf-8"
+            lower.endsWith(".js") -> "application/javascript; charset=utf-8"
+            lower.endsWith(".json") -> "application/json; charset=utf-8"
+            lower.endsWith(".png") -> "image/png"
+            lower.endsWith(".jpg") || lower.endsWith(".jpeg") -> "image/jpeg"
+            lower.endsWith(".gif") -> "image/gif"
+            lower.endsWith(".ico") -> "image/x-icon"
+            lower.endsWith(".txt") -> "text/plain; charset=utf-8"
+            lower.endsWith(".pdf") -> "application/pdf"
+            lower.endsWith(".apk") -> "application/vnd.android.package-archive"
             else -> "application/octet-stream"
         }
     }
@@ -317,6 +355,7 @@ class HttpFileServerService : Service() {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces() ?: return "127.0.0.1"
             for (intf in interfaces) {
+                if (!intf.isUp || intf.isLoopback) continue
                 for (addr in intf.inetAddresses) {
                     if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
                         return addr.hostAddress ?: continue
@@ -329,11 +368,20 @@ class HttpFileServerService : Service() {
         return "127.0.0.1"
     }
 
-    // ---------- WebSocket 转发服务器 ----------
-
-    private fun startWebSocketServer() {
-        if (wsServer != null) return
-        wsServer = ImWebSocketServer(wsPort, chatService).also { it.start() }
+    @Synchronized
+    private fun startWebSocketServerIfNeeded() {
+        val current = wsServer
+        if (current != null && current.isRunning()) return
+        try {
+            wsServer = ImWebSocketServer(wsPort, chatService).also { server ->
+                server.setReuseAddr(true)
+                server.start()
+            }
+            Log.i(TAG, "WebSocket server start requested on port $wsPort")
+        } catch (e: Exception) {
+            wsServer = null
+            Log.e(TAG, "Failed to start websocket server", e)
+        }
     }
 
     private fun createNotificationChannel() {
@@ -359,3 +407,4 @@ class HttpFileServerService : Service() {
             .build()
     }
 }
+

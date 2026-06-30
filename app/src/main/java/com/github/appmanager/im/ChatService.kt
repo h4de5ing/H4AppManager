@@ -1,16 +1,11 @@
 package com.github.appmanager.im
 
 import android.content.Context
+import android.util.Base64
 import android.util.Log
 import java.io.File
-import java.util.Base64
+import java.io.InputStream
 
-/**
- * 聊天室存储：消息历史（append-only .jsonl）与上传文件。服务器作为唯一存储点，
- * 每条转发的消息原样追加一行；新客户端连上时读取近期历史。
- *
- * 消息内容对服务器是不透明字符串——服务器只负责「追加 + 转发」，不解析、不识别身份。
- */
 class ChatService(private val context: Context) {
     companion object {
         private const val TAG = "ChatService"
@@ -35,17 +30,15 @@ class ChatService(private val context: Context) {
 
     fun getFilesDir2(): File = filesDir
 
-    /** 追加一行消息（原始 JSON 字符串）到历史文件。 */
     @Synchronized
     fun appendMessage(rawJson: String) {
         try {
-            historyFile.appendText(rawJson + "\n")
+            historyFile.appendText(rawJson.trimEnd() + "\n")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to append message", e)
         }
     }
 
-    /** 读取最近的若干条历史消息（原始 JSON 字符串，按时间正序）。 */
     @Synchronized
     fun loadRecentHistory(limit: Int = HISTORY_LIMIT): List<String> {
         return try {
@@ -58,29 +51,87 @@ class ChatService(private val context: Context) {
         }
     }
 
-    /**
-     * 存储上传文件。data 为 data URL（data:<mime>;base64,<payload>）或纯 base64。
-     * @return 落地后的文件名（与原始 name 一致）。
-     */
     @Synchronized
     fun storeUploadedFile(name: String, data: String): String {
+        val storedName = uniqueFileName(cleanFileName(name))
         val payload = stripDataUrlPrefix(data)
-        val bytes = Base64.getMimeDecoder().decode(payload)
-        val dest = File(filesDir, name)
+        val bytes = Base64.decode(payload, Base64.DEFAULT)
+        val dest = File(filesDir, storedName)
         dest.outputStream().use { it.write(bytes) }
-        return name
+        return storedName
     }
 
-    /** 原生端直接拷贝本地文件到共享文件目录，免去 base64 往返。返回落地文件名。 */
     @Synchronized
-    fun storeLocalFile(source: File): String {
-        val dest = File(filesDir, source.name)
+    fun storeLocalFile(source: File, displayName: String = source.name): String {
+        val storedName = uniqueFileName(cleanFileName(displayName))
+        val dest = File(filesDir, storedName)
         source.copyTo(dest, overwrite = true)
-        return source.name
+        return storedName
+    }
+
+    @Synchronized
+    fun storeLocalStream(input: InputStream, displayName: String): Pair<String, Long> {
+        val storedName = uniqueFileName(cleanFileName(displayName))
+        val dest = File(filesDir, storedName)
+        var total = 0L
+        dest.outputStream().use { output ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read <= 0) break
+                output.write(buffer, 0, read)
+                total += read
+            }
+        }
+        return storedName to total
+    }
+
+    @Synchronized
+    fun getSharedFile(name: String): File? {
+        val safeName = cleanFileName(name)
+        val candidate = File(filesDir, safeName)
+        val root = filesDir.canonicalFile
+        val file = candidate.canonicalFile
+        return if (file.parentFile == root) file else null
+    }
+
+    @Synchronized
+    fun clearAll() {
+        try {
+            if (historyFile.exists()) historyFile.delete()
+            if (filesDir.exists()) {
+                filesDir.listFiles()?.forEach { file ->
+                    if (file.isDirectory) file.deleteRecursively() else file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to clear chat data", e)
+            throw e
+        }
     }
 
     private fun stripDataUrlPrefix(data: String): String {
         val comma = data.indexOf(',')
         return if (data.startsWith("data:") && comma >= 0) data.substring(comma + 1) else data
     }
+
+    private fun cleanFileName(name: String): String {
+        val trimmed = name.substringAfterLast('/').substringAfterLast('\\').trim()
+        val cleaned = trimmed.replace(Regex("[\\u0000-\\u001F\\\\/:*?\"<>|]"), "_")
+        return cleaned.ifBlank { "file_${System.currentTimeMillis()}" }
+    }
+
+    private fun uniqueFileName(name: String): String {
+        val dot = name.lastIndexOf('.')
+        val base = if (dot > 0) name.substring(0, dot) else name
+        val ext = if (dot > 0) name.substring(dot) else ""
+        var candidate = name
+        var index = 1
+        while (File(filesDir, candidate).exists()) {
+            candidate = "${base}_$index$ext"
+            index++
+        }
+        return candidate
+    }
 }
+

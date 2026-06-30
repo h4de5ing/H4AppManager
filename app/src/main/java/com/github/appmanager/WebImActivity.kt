@@ -1,5 +1,6 @@
 package com.github.appmanager
 
+import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -14,6 +15,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.provider.OpenableColumns
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -33,17 +35,15 @@ import com.github.appmanager.im.ChatService
 import com.github.appmanager.im.RoomMessage
 import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
-import java.io.File
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.URI
-import java.net.URLEncoder
 import java.util.Collections
 
 class WebImActivity : ComponentActivity() {
     companion object {
         private const val TAG = "WebImActivity"
-        private const val WS_URL = "ws://localhost:8081"
+        private const val WS_URL = "ws://127.0.0.1:8081"
     }
 
     private lateinit var chatService: ChatService
@@ -55,6 +55,7 @@ class WebImActivity : ComponentActivity() {
     private lateinit var messageInput: EditText
     private lateinit var sendButton: ImageButton
     private lateinit var fileButton: ImageButton
+    private lateinit var clearButton: ImageButton
     private lateinit var messageScrollView: ScrollView
     private lateinit var messageContainer: LinearLayout
     private lateinit var statusView: View
@@ -67,6 +68,7 @@ class WebImActivity : ComponentActivity() {
     private var wsClient: WebSocketClient? = null
     private var destroyed = false
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private var reconnectScheduled = false
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -97,6 +99,7 @@ class WebImActivity : ComponentActivity() {
         messageInput = findViewById(R.id.message_input)
         sendButton = findViewById(R.id.send_button)
         fileButton = findViewById(R.id.file_button)
+        clearButton = findViewById(R.id.clear_button)
         messageScrollView = findViewById(R.id.message_scroll_view)
         messageContainer = findViewById(R.id.message_container)
         statusView = findViewById(R.id.status_view)
@@ -123,7 +126,11 @@ class WebImActivity : ComponentActivity() {
     private fun setupListeners() {
         sendButton.setOnClickListener { sendMessage() }
         fileButton.setOnClickListener { pickFileLauncher.launch("*/*") }
-        retryBtn.setOnClickListener { connectWs() }
+        clearButton.setOnClickListener { confirmClearAll() }
+        retryBtn.setOnClickListener {
+            reconnectScheduled = false
+            connectWs()
+        }
         messageInput.setOnEditorActionListener { _, _, _ -> sendMessage(); true }
     }
 
@@ -131,10 +138,12 @@ class WebImActivity : ComponentActivity() {
 
     private fun connectWs() {
         if (destroyed) return
-        try {
-            wsClient?.close()
-        } catch (e: Exception) {
-            // ignore
+        ensureServerServiceStarted()
+
+        val existing = wsClient
+        if (existing != null && !existing.isClosed && !existing.isClosing) {
+            showStatus(false, false)
+            return
         }
 
         showStatus(true, false)
@@ -144,6 +153,7 @@ class WebImActivity : ComponentActivity() {
                     // 清空列表，等待服务器推送的近期历史填充（重连时避免重复）。
                     messageList.clear()
                     renderMessages()
+                    reconnectScheduled = false
                     showStatus(false, false)
                 }
             }
@@ -151,20 +161,30 @@ class WebImActivity : ComponentActivity() {
             override fun onMessage(message: String?) {
                 val msg = message?.let { ChatSerializer.deserializeMessage(it) } ?: return
                 mainHandler.post {
-                    messageList.add(msg to false)
+                    if (msg.type == "CLEAR") {
+                        messageList.clear()
+                    } else {
+                        messageList.add(msg to false)
+                    }
                     renderMessages()
                 }
             }
 
             override fun onClose(code: Int, reason: String?, remote: Boolean) {
-                mainHandler.post { showStatus(true, true) }
-                if (!destroyed) {
-                    mainHandler.postDelayed({ connectWs() }, 3000)
+                mainHandler.post {
+                    if (wsClient === this) wsClient = null
+                    showStatus(true, true)
                 }
+                scheduleReconnect()
             }
 
             override fun onError(ex: Exception?) {
                 Log.e(TAG, "WebSocket error", ex)
+                mainHandler.post {
+                    if (wsClient === this && isClosed) wsClient = null
+                    showStatus(true, true)
+                }
+                scheduleReconnect()
             }
         }
         wsClient = client
@@ -173,13 +193,49 @@ class WebImActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "connect failed", e)
             showStatus(true, true)
-            mainHandler.postDelayed({ connectWs() }, 3000)
+            scheduleReconnect()
         }
     }
 
     private fun showStatus(loading: Boolean, disconnected: Boolean) {
         statusView.visibility = if (loading) View.VISIBLE else View.GONE
         retryBtn.visibility = if (disconnected) View.VISIBLE else View.GONE
+    }
+
+    private fun scheduleReconnect() {
+        if (destroyed || reconnectScheduled) return
+        reconnectScheduled = true
+        mainHandler.postDelayed({
+            reconnectScheduled = false
+            connectWs()
+        }, 3000)
+    }
+
+    private fun confirmClearAll() {
+        AlertDialog.Builder(this)
+            .setTitle("清理所有")
+            .setMessage("确定要清空所有聊天记录和共享文件吗？此操作不可恢复。")
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton("清理") { _, _ -> clearAllData() }
+            .show()
+    }
+
+    private fun clearAllData() {
+        Thread {
+            try {
+                chatService.clearAll()
+                val clearMsg = RoomMessage(type = "CLEAR", content = "", timestamp = System.currentTimeMillis())
+                wsClient?.takeIf { it.isOpen }?.send(ChatSerializer.serializeMessage(clearMsg))
+                runOnUiThread {
+                    messageList.clear()
+                    renderMessages()
+                    Toast.makeText(this, "已清理所有记录和文件", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to clear all data", e)
+                runOnUiThread { Toast.makeText(this, "清理失败", Toast.LENGTH_SHORT).show() }
+            }
+        }.start()
     }
 
     private fun sendMessage() {
@@ -199,7 +255,6 @@ class WebImActivity : ComponentActivity() {
     }
 
     private fun handleFileSelected(uri: Uri) {
-        val file = resolveUriToFile(uri) ?: return
         val client = wsClient
         if (client == null || !client.isOpen) {
             Toast.makeText(this, "未连接", Toast.LENGTH_SHORT).show()
@@ -207,38 +262,50 @@ class WebImActivity : ComponentActivity() {
         }
 
         Thread {
-            // 原生端直接拷贝文件到共享目录（同进程，免去 base64），再发 FILE 消息。
-            val name = chatService.storeLocalFile(file)
-            val fileUrl = serverUrl + "/files/" + URLEncoder.encode(name, "UTF-8")
-            val msg = RoomMessage(
-                type = "FILE",
-                content = "",
-                timestamp = System.currentTimeMillis(),
-                fileName = name,
-                fileSize = file.length(),
-                fileUrl = fileUrl
-            )
-            client.send(ChatSerializer.serializeMessage(msg))
-            runOnUiThread {
-                messageList.add(msg to true)
-                renderMessages()
+            try {
+                val displayName = resolveDisplayName(uri)
+                val stored = contentResolver.openInputStream(uri)?.use { input ->
+                    chatService.storeLocalStream(input, displayName)
+                }
+                if (stored == null) {
+                    runOnUiThread { Toast.makeText(this, "无法读取文件", Toast.LENGTH_SHORT).show() }
+                    return@Thread
+                }
+
+                val (name, size) = stored
+                val fileUrl = serverUrl + "/files/" + Uri.encode(name)
+                val msg = RoomMessage(
+                    type = "FILE",
+                    content = "",
+                    timestamp = System.currentTimeMillis(),
+                    fileName = name,
+                    fileSize = size,
+                    fileUrl = fileUrl
+                )
+                client.send(ChatSerializer.serializeMessage(msg))
+                runOnUiThread {
+                    messageList.add(msg to true)
+                    renderMessages()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send file", e)
+                runOnUiThread { Toast.makeText(this, "发送文件失败", Toast.LENGTH_SHORT).show() }
             }
         }.start()
     }
 
-    private fun resolveUriToFile(uri: Uri): File? {
-        return try {
-            val tempFile = File(cacheDir, "temp_${System.currentTimeMillis()}")
-            contentResolver.openInputStream(uri)?.use { input ->
-                tempFile.outputStream().use { output ->
-                    input.copyTo(output)
+    private fun resolveDisplayName(uri: Uri): String {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0) {
+                    val name = cursor.getString(index)
+                    if (!name.isNullOrBlank()) return name
                 }
             }
-            tempFile
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to resolve URI to file", e)
-            null
         }
+        return uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null }
+            ?: "file_${System.currentTimeMillis()}"
     }
 
     // ---------- 渲染 ----------
@@ -325,24 +392,27 @@ class WebImActivity : ComponentActivity() {
     // ---------- 服务与生命周期 ----------
 
     private fun checkAndStartServer() {
-        if (isServerRunning) {
-            initChat()
-            return
-        }
-
-        val intent = Intent(this, HttpFileServerService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
+        if (ensureServerServiceStarted()) {
+            mainHandler.postDelayed({ connectWs() }, 1000)
         } else {
-            startService(intent)
-        }
-
-        try {
-            bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to bind service", e)
             statusView.visibility = View.VISIBLE
             retryBtn.visibility = View.VISIBLE
+        }
+    }
+
+    private fun ensureServerServiceStarted(): Boolean {
+        return try {
+            val intent = Intent(this, HttpFileServerService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            isServerRunning = true
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start HTTP server", e)
+            false
         }
     }
 
@@ -455,3 +525,11 @@ class WebImActivity : ComponentActivity() {
         }
     }
 }
+
+
+
+
+
+
+
+
