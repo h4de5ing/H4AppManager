@@ -12,6 +12,13 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.github.appmanager.im.ChatSerializer
 import com.github.appmanager.im.ChatService
+import com.github.appmanager.im.FileDeleteRequest
+import com.github.appmanager.im.FileMkdirRequest
+import com.github.appmanager.im.FileOpResponse
+import com.github.appmanager.im.FileRenameRequest
+import com.github.appmanager.im.FileService
+import com.github.appmanager.im.FileUploadRequest
+import kotlinx.serialization.json.Json
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
@@ -32,11 +39,19 @@ class HttpFileServerService : Service() {
 
     private var serverSocket: ServerSocket? = null
     private lateinit var chatService: ChatService
+    private lateinit var fileService: FileService
     private var wsServer: ImWebSocketServer? = null
+
+    private val fileJson = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = false
+        prettyPrint = false
+    }
 
     override fun onCreate() {
         super.onCreate()
         chatService = ChatService(applicationContext)
+        fileService = FileService(applicationContext)
         createNotificationChannel()
         startForeground(1, buildNotification())
     }
@@ -122,6 +137,7 @@ class HttpFileServerService : Service() {
 
             val method = parts[0].uppercase()
             val rawPathOnly = parts[1].substringBefore('?')
+            val queryString = parts[1].substringAfter('?', "")
             val path = decodeUri(rawPathOnly)
 
             if (method == "OPTIONS") {
@@ -136,12 +152,19 @@ class HttpFileServerService : Service() {
 
             when {
                 path == "/" || path == "/index.html" -> serveAsset(socket, "index.html", "text/html; charset=utf-8")
+                path == "/file.html" -> serveAsset(socket, "file.html", "text/html; charset=utf-8")
                 path == "/api/info" -> handleGetInfo(socket)
                 path.startsWith("/api/upload") && method == "POST" -> handleUpload(socket, buffer, bytesRead)
                 rawPathOnly.startsWith("/files/") -> {
                     val fileName = decodeUri(rawPathOnly.removePrefix("/files/"))
                     serveFileFromCache(socket, fileName)
                 }
+                path == "/api/files/list" && method == "GET" -> handleFileList(socket, queryString)
+                path == "/api/files/download" && method == "GET" -> handleFileDownload(socket, queryString)
+                path == "/api/files/upload" && method == "POST" -> handleFileUpload(socket, buffer, bytesRead)
+                path == "/api/files/delete" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileDelete)
+                path == "/api/files/rename" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileRename)
+                path == "/api/files/mkdir" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileMkdir)
                 else -> sendResponse(socket, 404, "text/plain", "Not found")
             }
         } catch (e: Exception) {
@@ -184,6 +207,129 @@ class HttpFileServerService : Service() {
             Log.e(TAG, "Upload failed", e)
             sendResponse(socket, 500, "application/json", "{\"error\":\"${jsonEscape(e.message ?: "upload failed")}\"}")
         }
+    }
+
+    // ---------- 文件管理器接口 ----------
+
+    private fun parseQueryDir(query: String): String {
+        // 形如 dir=a/b；取值并 URL 解码，默认空串（根目录）
+        return query.split("&").firstOrNull { it.startsWith("dir=") }
+            ?.removePrefix("dir=")
+            ?.let { decodeUri(it) }
+            ?: ""
+    }
+
+    private fun parseQueryPath(query: String): String {
+        return query.split("&").firstOrNull { it.startsWith("path=") }
+            ?.removePrefix("path=")
+            ?.let { decodeUri(it) }
+            ?: ""
+    }
+
+    private fun handleFileList(socket: Socket, query: String) {
+        val dir = parseQueryDir(query)
+        if (!fileService.isPermissionGranted()) {
+            sendResponse(socket, 403, "application/json; charset=utf-8",
+                "{\"success\":false,\"cwd\":\"\",\"entries\":[],\"code\":\"PERMISSION_DENIED\"}")
+            return
+        }
+        val result = fileService.list(dir)
+        if (result == null) {
+            sendResponse(socket, 404, "application/json; charset=utf-8",
+                "{\"success\":false,\"cwd\":\"\",\"entries\":[],\"code\":\"NOT_FOUND\"}")
+            return
+        }
+        val (cwd, entries) = result
+        val entriesJson = entries.joinToString(",", "[", "]") { e ->
+            "{\"name\":\"${jsonEscape(e.name)}\",\"isDir\":${e.isDir},\"size\":${e.size},\"modified\":${e.modified}}"
+        }
+        val body = "{\"success\":true,\"cwd\":\"${jsonEscape(cwd)}\",\"entries\":$entriesJson}"
+        sendResponse(socket, 200, "application/json; charset=utf-8", body)
+    }
+
+    private fun handleFileDownload(socket: Socket, query: String) {
+        val rel = parseQueryPath(query)
+        if (!fileService.isPermissionGranted()) {
+            sendResponse(socket, 403, "text/plain", "Permission denied")
+            return
+        }
+        val file = fileService.resolveForDownload(rel)
+        if (file == null) {
+            sendResponse(socket, 404, "text/plain", "File not found")
+            return
+        }
+        try {
+            val response = StringBuilder()
+            response.append("HTTP/1.1 200 OK\r\n")
+            response.append("Content-Type: ${getMimeType(file.name)}\r\n")
+            response.append("Content-Length: ${file.length()}\r\n")
+            response.append("Content-Disposition: attachment; filename*=UTF-8''${Uri.encode(file.name)}\r\n")
+            response.append("Access-Control-Allow-Origin: *\r\n")
+            response.append("Connection: close\r\n")
+            response.append("\r\n")
+            socket.outputStream.write(response.toString().toByteArray(StandardCharsets.UTF_8))
+            file.inputStream().use { input -> input.copyTo(socket.outputStream) }
+            socket.outputStream.flush()
+        } catch (e: Exception) {
+            sendResponse(socket, 500, "text/plain", "Error serving file: ${e.message}")
+        }
+    }
+
+    private fun handleFileUpload(socket: Socket, raw: ByteArray, rawLen: Int) {
+        val body = readRequestBody(socket, raw, rawLen)
+        val req = try { fileJson.decodeFromString(FileUploadRequest.serializer(), body) } catch (e: Exception) { null }
+        if (req == null) {
+            sendResponse(socket, 400, "application/json; charset=utf-8",
+                "{\"success\":false,\"code\":\"INVALID_PATH\"}")
+            return
+        }
+        val res = fileService.upload(req.dir, req.name, req.data)
+        sendFileOpResponse(socket, res, if (res.success) 200 else opStatus(res))
+    }
+
+    private fun handleFileDelete(body: String): FileOpResponse {
+        val req = try { fileJson.decodeFromString(FileDeleteRequest.serializer(), body) } catch (e: Exception) { null }
+            ?: return FileOpResponse(success = false, code = "INVALID_PATH")
+        return fileService.delete(req.dir, req.name, req.isDir)
+    }
+
+    private fun handleFileRename(body: String): FileOpResponse {
+        val req = try { fileJson.decodeFromString(FileRenameRequest.serializer(), body) } catch (e: Exception) { null }
+            ?: return FileOpResponse(success = false, code = "INVALID_PATH")
+        return fileService.rename(req.dir, req.oldName, req.newName)
+    }
+
+    private fun handleFileMkdir(body: String): FileOpResponse {
+        val req = try { fileJson.decodeFromString(FileMkdirRequest.serializer(), body) } catch (e: Exception) { null }
+            ?: return FileOpResponse(success = false, code = "INVALID_PATH")
+        return fileService.mkdir(req.dir, req.name)
+    }
+
+    private fun handleFileOp(
+        socket: Socket,
+        raw: ByteArray,
+        rawLen: Int,
+        op: (String) -> FileOpResponse
+    ) {
+        val body = readRequestBody(socket, raw, rawLen)
+        val res = op(body)
+        sendFileOpResponse(socket, res, if (res.success) 200 else opStatus(res))
+    }
+
+    private fun sendFileOpResponse(socket: Socket, res: FileOpResponse, status: Int) {
+        val pathPart = res.path?.let { ",\"path\":\"${jsonEscape(it)}\"" } ?: ""
+        val codePart = res.code?.let { ",\"code\":\"${it}\"" } ?: ""
+        val msgPart = res.message?.let { ",\"message\":\"${jsonEscape(it)}\"" } ?: ""
+        val body = "{\"success\":${res.success}$pathPart$codePart$msgPart}"
+        sendResponse(socket, status, "application/json; charset=utf-8", body)
+    }
+
+    private fun opStatus(res: FileOpResponse): Int = when (res.code) {
+        "PERMISSION_DENIED" -> 403
+        "INVALID_PATH" -> 400
+        "NOT_FOUND" -> 404
+        "EXISTS" -> 409
+        else -> 500
     }
 
     private fun serveAsset(socket: Socket, assetName: String, contentType: String) {

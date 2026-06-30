@@ -8,14 +8,12 @@ import android.content.ServiceConnection
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkRequest
-import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.provider.OpenableColumns
 import android.util.Log
 import android.view.View
 import android.view.ViewGroup
@@ -28,7 +26,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.github.appmanager.im.ChatSerializer
 import com.github.appmanager.im.ChatService
@@ -54,7 +51,6 @@ class WebImActivity : ComponentActivity() {
 
     private lateinit var messageInput: EditText
     private lateinit var sendButton: ImageButton
-    private lateinit var fileButton: ImageButton
     private lateinit var clearButton: ImageButton
     private lateinit var messageScrollView: ScrollView
     private lateinit var messageContainer: LinearLayout
@@ -83,12 +79,6 @@ class WebImActivity : ComponentActivity() {
         }
     }
 
-    private val pickFileLauncher = registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let { handleFileSelected(it) }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_web_im)
@@ -98,7 +88,6 @@ class WebImActivity : ComponentActivity() {
 
         messageInput = findViewById(R.id.message_input)
         sendButton = findViewById(R.id.send_button)
-        fileButton = findViewById(R.id.file_button)
         clearButton = findViewById(R.id.clear_button)
         messageScrollView = findViewById(R.id.message_scroll_view)
         messageContainer = findViewById(R.id.message_container)
@@ -125,7 +114,6 @@ class WebImActivity : ComponentActivity() {
 
     private fun setupListeners() {
         sendButton.setOnClickListener { sendMessage() }
-        fileButton.setOnClickListener { pickFileLauncher.launch("*/*") }
         clearButton.setOnClickListener { confirmClearAll() }
         retryBtn.setOnClickListener {
             reconnectScheduled = false
@@ -252,60 +240,6 @@ class WebImActivity : ComponentActivity() {
         messageList.add(msg to true)   // 本端发出靠右
         renderMessages()
         messageInput.text.clear()
-    }
-
-    private fun handleFileSelected(uri: Uri) {
-        val client = wsClient
-        if (client == null || !client.isOpen) {
-            Toast.makeText(this, "未连接", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        Thread {
-            try {
-                val displayName = resolveDisplayName(uri)
-                val stored = contentResolver.openInputStream(uri)?.use { input ->
-                    chatService.storeLocalStream(input, displayName)
-                }
-                if (stored == null) {
-                    runOnUiThread { Toast.makeText(this, "无法读取文件", Toast.LENGTH_SHORT).show() }
-                    return@Thread
-                }
-
-                val (name, size) = stored
-                val fileUrl = serverUrl + "/files/" + Uri.encode(name)
-                val msg = RoomMessage(
-                    type = "FILE",
-                    content = "",
-                    timestamp = System.currentTimeMillis(),
-                    fileName = name,
-                    fileSize = size,
-                    fileUrl = fileUrl
-                )
-                client.send(ChatSerializer.serializeMessage(msg))
-                runOnUiThread {
-                    messageList.add(msg to true)
-                    renderMessages()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to send file", e)
-                runOnUiThread { Toast.makeText(this, "发送文件失败", Toast.LENGTH_SHORT).show() }
-            }
-        }.start()
-    }
-
-    private fun resolveDisplayName(uri: Uri): String {
-        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (index >= 0) {
-                    val name = cursor.getString(index)
-                    if (!name.isNullOrBlank()) return name
-                }
-            }
-        }
-        return uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null }
-            ?: "file_${System.currentTimeMillis()}"
     }
 
     // ---------- 渲染 ----------

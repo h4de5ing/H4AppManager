@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件管理器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
+.header { background: #0F766E; color: white; padding: 12px 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.header h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.breadcrumb { flex: 1; min-width: 200px; background: rgba(255,255,255,0.15); border-radius: 6px; padding: 6px 10px; font-size: 13px; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.breadcrumb .crumb { cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+.breadcrumb .crumb:hover { background: rgba(255,255,255,0.2); }
+.breadcrumb .sep { opacity: 0.6; }
+.btn { border: none; cursor: pointer; border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; }
+.btn-up { background: rgba(255,255,255,0.2); color: white; }
+.btn-mkdir { background: #F59E0B; color: white; }
+.btn-upload { background: #2563EB; color: white; }
+.btn:active { transform: scale(0.96); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.error-banner { background: #fee; color: #c00; padding: 10px; text-align: center; font-size: 13px; }
+.info-banner { background: #fef3c7; color: #92400e; padding: 10px; text-align: center; font-size: 13px; }
+.list-container { flex: 1; overflow-y: auto; padding: 8px; }
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+th, td { padding: 10px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #eee; }
+th { background: #fafafa; font-weight: 600; color: #5F6B67; font-size: 12px; }
+td .name { display: flex; align-items: center; gap: 8px; }
+td .icon { font-size: 16px; }
+td .name-text { cursor: pointer; }
+td .name-text.dir { color: #0F766E; font-weight: 500; }
+.row:hover { background: #f7fafa; }
+.actions { white-space: nowrap; }
+.actions a, .actions button { font-size: 12px; color: #2563EB; background: none; border: none; cursor: pointer; padding: 2px 6px; }
+.actions button.danger { color: #dc2626; }
+.actions button:hover { text-decoration: underline; }
+.empty { text-align: center; color: #9ca3af; padding: 40px; font-size: 14px; }
+.loading { text-align: center; color: #9ca3af; padding: 40px; font-size: 14px; }
+.hidden-input { display: none; }
+@media (max-width: 600px) { .col-size, .col-modified { display: none; } }
+</style>
+</head>
+<body>
+<div class="header">
+<h1>📁 文件管理器</h1>
+<div class="toolbar">
+<div class="breadcrumb" id="breadcrumb"></div>
+<button class="btn btn-up" onclick="goUp()" id="upBtn">⬆ 上级</button>
+<button class="btn btn-mkdir" onclick="mkdir()">＋ 新建文件夹</button>
+<button class="btn btn-upload" onclick="document.getElementById('fileInput').click()">⬆ 上传</button>
+<input type="file" id="fileInput" class="hidden-input" onchange="handleFileSelect(event)">
+</div>
+</div>
+<div id="errorBanner" class="error-banner" style="display:none"></div>
+<div id="infoBanner" class="info-banner" style="display:none"></div>
+<div class="list-container">
+<div class="loading" id="listArea">正在加载...</div>
+</div>
+
+<script>
+let serverBase = '';
+let cwd = '';   // 相对 /sdcard 的当前路径，根目录为空串
+
+function showError(msg) {
+    const b = document.getElementById('errorBanner');
+    b.textContent = msg;
+    b.style.display = 'block';
+    setTimeout(() => { b.style.display = 'none'; }, 4000);
+}
+
+function showInfo(msg) {
+    const b = document.getElementById('infoBanner');
+    b.textContent = msg;
+    b.style.display = 'block';
+}
+
+function hideBanners() {
+    document.getElementById('errorBanner').style.display = 'none';
+    document.getElementById('infoBanner').style.display = 'none';
+}
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+    return (bytes / 1073741824).toFixed(2) + ' GB';
+}
+
+function formatTime(ts) {
+    if (!ts) return '-';
+    return new Date(ts).toLocaleString('zh-CN', { hour12: false });
+}
+
+function iconFor(entry) {
+    if (entry.isDir) return '📁';
+    const n = entry.name.toLowerCase();
+    if (/\.(png|jpg|jpeg|gif|bmp|webp)$/.test(n)) return '🖼️';
+    if (/\.(mp4|avi|mkv|mov|3gp)$/.test(n)) return '🎬';
+    if (/\.(mp3|wav|flac|aac)$/.test(n)) return '🎵';
+    if (/\.(apk)$/.test(n)) return '📦';
+    if (/\.(txt|md|log)$/.test(n)) return '📄';
+    if (/\.(zip|rar|7z|tar|gz)$/.test(n)) return '🗜️';
+    return '📄';
+}
+
+// 把 cwd 拆成面包屑段
+function renderBreadcrumb() {
+    const bc = document.getElementById('breadcrumb');
+    const parts = cwd ? cwd.split('/').filter(Boolean) : [];
+    let html = '<span class="crumb" onclick="navigateTo(0)">/sdcard</span>';
+    parts.forEach((p, i) => {
+        html += '<span class="sep">/</span>';
+        html += '<span class="crumb" onclick="navigateTo(' + (i + 1) + ')">' + escapeHtml(p) + '</span>';
+    });
+    bc.innerHTML = html;
+    document.getElementById('upBtn').disabled = parts.length === 0;
+}
+
+function navigateTo(level) {
+    if (level === 0) { cwd = ''; }
+    else { cwd = cwd.split('/').filter(Boolean).slice(0, level).join('/'); }
+    loadList();
+}
+
+function goUp() {
+    const parts = cwd.split('/').filter(Boolean);
+    parts.pop();
+    cwd = parts.join('/');
+    loadList();
+}
+
+async function loadList() {
+    hideBanners();
+    renderBreadcrumb();
+    const area = document.getElementById('listArea');
+    area.className = 'loading';
+    area.textContent = '正在加载...';
+    try {
+        const url = serverBase + '/api/files/list?dir=' + encodeURIComponent(cwd);
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!res.ok) {
+            if (data.code === 'PERMISSION_DENIED') {
+                showPermissionPrompt();
+            } else if (data.code === 'NOT_FOUND') {
+                showError('目录不存在');
+            } else {
+                showError('加载失败: ' + (data.message || res.status));
+            }
+            area.innerHTML = '';
+            return;
+        }
+        renderList(data.entries || []);
+    } catch (e) {
+        showError('加载失败: ' + e.message);
+        area.innerHTML = '';
+    }
+}
+
+function renderList(entries) {
+    const area = document.getElementById('listArea');
+    if (entries.length === 0) {
+        area.className = 'empty';
+        area.textContent = '空目录';
+        return;
+    }
+    area.className = '';
+    let html = '<table><thead><tr>'
+        + '<th>名称</th><th class="col-size">大小</th><th class="col-modified">修改时间</th><th>操作</th>'
+        + '</tr></thead><tbody>';
+    entries.forEach((e, idx) => {
+        const rel = joinPath(cwd, e.name);
+        if (e.isDir) {
+            html += '<tr class="row"><td><div class="name"><span class="icon">' + iconFor(e) + '</span>'
+                + '<span class="name-text dir" onclick="enterDir(\'' + escJs(e.name) + '\')">' + escapeHtml(e.name) + '</span></div></td>'
+                + '<td class="col-size">-</td><td class="col-modified">' + formatTime(e.modified) + '</td>'
+                + '<td class="actions"><button onclick="renameEntry(\'' + escJs(e.name) + '\')">重命名</button>'
+                + '<button class="danger" onclick="deleteEntry(\'' + escJs(e.name) + '\',true)">删除</button></td></tr>';
+        } else {
+            html += '<tr class="row"><td><div class="name"><span class="icon">' + iconFor(e) + '</span>'
+                + '<span class="name-text">' + escapeHtml(e.name) + '</span></div></td>'
+                + '<td class="col-size">' + formatSize(e.size) + '</td><td class="col-modified">' + formatTime(e.modified) + '</td>'
+                + '<td class="actions"><a href="' + serverBase + '/api/files/download?path=' + encodeURIComponent(rel) + '" download>下载</a>'
+                + '<button onclick="renameEntry(\'' + escJs(e.name) + '\')">重命名</button>'
+                + '<button class="danger" onclick="deleteEntry(\'' + escJs(e.name) + '\',false)">删除</button></td></tr>';
+        }
+    });
+    html += '</tbody></table>';
+    area.innerHTML = html;
+}
+
+function escJs(s) {
+    // 转义用于内联 onclick 字符串参数
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function joinPath(dir, name) {
+    return dir ? dir + '/' + name : name;
+}
+
+function enterDir(name) {
+    cwd = joinPath(cwd, name);
+    loadList();
+}
+
+function showPermissionPrompt() {
+    const area = document.getElementById('listArea');
+    area.className = 'empty';
+    area.innerHTML = '⚠️ 需要所有文件访问权限<br><br>'
+        + '请在手机端 App 授予「所有文件访问权限」后刷新本页。<br>'
+        + '（设置 → 应用 → H4AppManager → 存储 → 允许管理所有文件）';
+}
+
+async function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    showInfo('正在上传 ' + file.name + ' ...');
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const res = await fetch(serverBase + '/api/files/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dir: cwd, name: file.name, data: e.target.result })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                hideBanners();
+                showError('上传失败: ' + (data.message || res.status));
+                return;
+            }
+            loadList();
+        } catch (err) {
+            hideBanners();
+            showError('上传失败: ' + err.message);
+        }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+async function deleteEntry(name, isDir) {
+    if (!confirm('确定删除「' + name + '」' + (isDir ? '（含全部内容）' : '') + '？')) return;
+    try {
+        const res = await fetch(serverBase + '/api/files/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir: cwd, name: name, isDir: isDir })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            showError('删除失败: ' + (data.message || res.status));
+            return;
+        }
+        loadList();
+    } catch (e) {
+        showError('删除失败: ' + e.message);
+    }
+}
+
+async function renameEntry(name) {
+    const newName = prompt('重命名「' + name + '」为：', name);
+    if (newName == null || newName.trim() === '' || newName === name) return;
+    try {
+        const res = await fetch(serverBase + '/api/files/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir: cwd, oldName: name, newName: newName.trim() })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            showError('重命名失败: ' + (data.message || res.status));
+            return;
+        }
+        loadList();
+    } catch (e) {
+        showError('重命名失败: ' + e.message);
+    }
+}
+
+async function mkdir() {
+    const name = prompt('新建文件夹名称：');
+    if (name == null || name.trim() === '') return;
+    try {
+        const res = await fetch(serverBase + '/api/files/mkdir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dir: cwd, name: name.trim() })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            showError('新建失败: ' + (data.message || res.status));
+            return;
+        }
+        loadList();
+    } catch (e) {
+        showError('新建失败: ' + e.message);
+    }
+}
+
+// 初始化：服务地址取同源
+serverBase = window.location.origin;
+loadList();
+</script>
+</body>
+</html>

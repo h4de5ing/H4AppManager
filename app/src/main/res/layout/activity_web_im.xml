@@ -37,16 +37,6 @@
             android:contentDescription="清理所有"
             android:src="@android:drawable/ic_menu_delete"
             android:tint="#B91C1C" />
-
-
-        <ImageButton
-            android:id="@+id/file_button"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginEnd="8dp"
-            android:background="@android:drawable/edit_text"
-            android:contentDescription="发送文件"
-            android:src="@android:drawable/ic_menu_upload" />
     </LinearLayout>
 
     <ScrollView
