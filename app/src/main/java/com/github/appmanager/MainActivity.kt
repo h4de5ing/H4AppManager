@@ -104,6 +104,19 @@ class MainActivity : ComponentActivity() {
 
         loadApps()
         startHttpFileServer()
+        checkAndRequestStoragePermission()
+    }
+
+    /**
+     * 文件管理器需要 MANAGE_EXTERNAL_STORAGE（所有文件访问）。该权限不能用 requestPermissions
+     * 弹框申请，必须在 Android 端跳系统设置页授予。App 首次启动时若未授权，跳到授权页；
+     * 用户授权后返回即可，Web 端 file.html 自然就能访问 sdcard。
+     */
+    private fun checkAndRequestStoragePermission() {
+        val fs = com.github.appmanager.im.FileService(this)
+        if (!fs.isPermissionGranted()) {
+            fs.requestPermission()
+        }
     }
 
     private fun loadApps() {
