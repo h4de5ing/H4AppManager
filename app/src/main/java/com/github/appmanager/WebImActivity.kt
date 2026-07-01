@@ -287,6 +287,8 @@ class WebImActivity : ComponentActivity() {
                 msg.content
             }
             textSize = 14f
+            // 允许长按选中文本复制
+            setTextIsSelectable(true)
             setTextColor(
                 if (isSent) getColor(R.color.surface) else getColor(R.color.textPrimary)
             )
