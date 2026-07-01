@@ -161,6 +161,7 @@ class HttpFileServerService : Service() {
                 }
                 path == "/api/files/list" && method == "GET" -> handleFileList(socket, queryString)
                 path == "/api/files/download" && method == "GET" -> handleFileDownload(socket, queryString)
+                path == "/api/files/request-permission" -> handleRequestPermission(socket)
                 path == "/api/files/upload" && method == "POST" -> handleFileUpload(socket, buffer, bytesRead)
                 path == "/api/files/delete" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileDelete)
                 path == "/api/files/rename" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileRename)
@@ -245,6 +246,20 @@ class HttpFileServerService : Service() {
         }
         val body = "{\"success\":true,\"cwd\":\"${jsonEscape(cwd)}\",\"entries\":$entriesJson}"
         sendResponse(socket, 200, "application/json; charset=utf-8", body)
+    }
+
+    private fun handleRequestPermission(socket: Socket) {
+        // 由 Web 端触发跳转系统授权页；Service 跳 Activity 需 NEW_TASK（在 FileService 内已加）。
+        val already = fileService.isPermissionGranted()
+        if (!already) {
+            try {
+                fileService.requestPermission()
+            } catch (e: Exception) {
+                Log.e(TAG, "requestPermission failed", e)
+            }
+        }
+        sendResponse(socket, 200, "application/json; charset=utf-8",
+            "{\"success\":true,\"granted\":$already}")
     }
 
     private fun handleFileDownload(socket: Socket, query: String) {

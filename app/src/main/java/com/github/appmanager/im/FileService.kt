@@ -1,9 +1,16 @@
 package com.github.appmanager.im
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.Settings
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.ContextCompat
 import java.io.File
 
 /**
@@ -29,7 +36,37 @@ class FileService(private val context: Context) {
     }
 
     fun isPermissionGranted(): Boolean {
-        return Environment.isExternalStorageManager()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            // 低于 R：MANAGE_EXTERNAL_STORAGE 不存在，退回普通读写权限
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    /**
+     * 跳转到系统「所有文件访问」授权页（API 30+），低版本跳应用详情页兜底。
+     * 由 Service 调用，需 FLAG_ACTIVITY_NEW_TASK。已授权则不跳。
+     */
+    fun requestPermission() {
+        if (isPermissionGranted()) return
+        try {
+            val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+            } else {
+                // 低版本用普通读写权限，这里直接跳应用详情页便于用户手动给权限
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "requestPermission failed", e)
+        }
     }
 
     /** 把相对路径拼到根，做 canonical 前缀校验。失败或越界返回 null。 */

@@ -214,8 +214,28 @@ function showPermissionPrompt() {
     const area = document.getElementById('listArea');
     area.className = 'empty';
     area.innerHTML = '⚠️ 需要所有文件访问权限<br><br>'
-        + '请在手机端 App 授予「所有文件访问权限」后刷新本页。<br>'
-        + '（设置 → 应用 → H4AppManager → 存储 → 允许管理所有文件）';
+        + '<button class="btn btn-upload" id="grantBtn" onclick="requestPermission()">去授权</button><br><br>'
+        + '点击「去授权」在手机上打开系统设置，开启「允许管理所有文件」后，回到浏览器点「刷新」。<br>'
+        + '（也可手动：设置 → 应用 → H4AppManager → 存储 → 允许管理所有文件）';
+}
+
+async function requestPermission() {
+    const btn = document.getElementById('grantBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '已发起跳转...'; }
+    try {
+        const res = await fetch(serverBase + '/api/files/request-permission', { method: 'POST' });
+        const data = await res.json();
+        if (data.granted) {
+            // 已授权，直接刷新
+            loadList();
+            return;
+        }
+        showInfo('已在手机上打开授权页，授权完成后点「刷新」');
+    } catch (e) {
+        showError('请求授权失败: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '去授权'; }
+    }
 }
 
 async function handleFileSelect(event) {
