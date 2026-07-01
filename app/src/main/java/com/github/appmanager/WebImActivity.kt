@@ -95,8 +95,6 @@ class WebImActivity : ComponentActivity() {
         retryBtn = findViewById(R.id.retry_btn)
         progressBar = findViewById(R.id.progress_bar)
         serverUrlText = findViewById(R.id.server_url_text)
-        // 共享聊天室：单频道，无需接收者选择器，直接隐藏。
-        findViewById<View>(R.id.receiver_spinner).visibility = View.GONE
         serverUrl = buildServerUrl()
         serverUrlText.text = serverUrl
         setupListeners()
