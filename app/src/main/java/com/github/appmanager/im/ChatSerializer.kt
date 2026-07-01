@@ -17,7 +17,7 @@ object ChatSerializer {
     fun deserializeMessage(jsonStr: String): RoomMessage? {
         return try {
             json.decodeFromString(RoomMessage.serializer(), jsonStr)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
@@ -25,7 +25,7 @@ object ChatSerializer {
     fun deserializeMessageList(jsonStr: String): List<RoomMessage> {
         return try {
             json.decodeFromString(ListSerializer(RoomMessage.serializer()), jsonStr)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }
@@ -33,7 +33,7 @@ object ChatSerializer {
     fun deserializeUpload(jsonStr: String): UploadRequest? {
         return try {
             json.decodeFromString(UploadRequest.serializer(), jsonStr)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }

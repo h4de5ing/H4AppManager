@@ -2,7 +2,6 @@ package com.github.appmanager
 
 import android.app.AlertDialog
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.net.ConnectivityManager
@@ -38,7 +37,10 @@ import org.java_websocket.handshake.ServerHandshake
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.URI
+import java.text.DateFormat
 import java.util.Collections
+import java.util.Date
+import java.util.Locale
 
 class WebImActivity : ComponentActivity() {
     companion object {
@@ -140,11 +142,11 @@ class WebImActivity : ComponentActivity() {
 
         val existing = wsClient
         if (existing != null && !existing.isClosed && !existing.isClosing) {
-            showStatus(false, false)
+            showStatus(false, disconnected = false)
             return
         }
 
-        showStatus(true, false)
+        showStatus(true, disconnected = false)
         val client = object : WebSocketClient(URI(WS_URL)) {
             override fun onOpen(handshake: ServerHandshake?) {
                 mainHandler.post {
@@ -152,7 +154,7 @@ class WebImActivity : ComponentActivity() {
                     messageList.clear()
                     renderMessages()
                     reconnectScheduled = false
-                    showStatus(false, false)
+                    showStatus(false, disconnected = false)
                 }
             }
 
@@ -171,7 +173,7 @@ class WebImActivity : ComponentActivity() {
             override fun onClose(code: Int, reason: String?, remote: Boolean) {
                 mainHandler.post {
                     if (wsClient === this) wsClient = null
-                    showStatus(true, true)
+                    showStatus(true, disconnected = true)
                 }
                 scheduleReconnect()
             }
@@ -180,7 +182,7 @@ class WebImActivity : ComponentActivity() {
                 Log.e(TAG, "WebSocket error", ex)
                 mainHandler.post {
                     if (wsClient === this && isClosed) wsClient = null
-                    showStatus(true, true)
+                    showStatus(true, disconnected = true)
                 }
                 scheduleReconnect()
             }
@@ -190,7 +192,7 @@ class WebImActivity : ComponentActivity() {
             client.connect()
         } catch (e: Exception) {
             Log.e(TAG, "connect failed", e)
-            showStatus(true, true)
+            showStatus(true, disconnected = true)
             scheduleReconnect()
         }
     }
@@ -222,7 +224,11 @@ class WebImActivity : ComponentActivity() {
         Thread {
             try {
                 chatService.clearAll()
-                val clearMsg = RoomMessage(type = "CLEAR", content = "", timestamp = System.currentTimeMillis())
+                val clearMsg = RoomMessage(
+                    type = "CLEAR",
+                    content = "",
+                    timestamp = System.currentTimeMillis()
+                )
                 wsClient?.takeIf { it.isOpen }?.send(ChatSerializer.serializeMessage(clearMsg))
                 runOnUiThread {
                     messageList.clear()
@@ -307,8 +313,8 @@ class WebImActivity : ComponentActivity() {
         containerView.addView(contentText)
 
         val timeText = TextView(this).apply {
-            val d = java.util.Date(msg.timestamp)
-            text = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(d)
+            val d = Date(msg.timestamp)
+            text = DateFormat.getTimeInstance(DateFormat.SHORT).format(d)
             textSize = 10f
             setTextColor(
                 if (isSent) getColor(R.color.surface) else getColor(R.color.textSecondary)
@@ -324,8 +330,8 @@ class WebImActivity : ComponentActivity() {
     private fun formatFileSize(bytes: Long): String {
         return when {
             bytes < 1024 -> "$bytes B"
-            bytes < 1048576 -> String.format("%.1f KB", bytes / 1024.0)
-            else -> String.format("%.1f MB", bytes / 1048576.0)
+            bytes < 1048576 -> String.format(Locale.getDefault(), "%.1f KB", bytes / 1024.0)
+            else -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1048576.0)
         }
     }
 
@@ -382,7 +388,7 @@ class WebImActivity : ComponentActivity() {
      * 让 web 端总能拿到当前可达的 URL。
      */
     private fun registerNetworkCallback() {
-        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 runOnUiThread { refreshServerUrl() }
@@ -402,7 +408,7 @@ class WebImActivity : ComponentActivity() {
 
     private fun getLocalIpAddress(): String {
         try {
-            val wifiManager = application.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            val wifiManager = application.getSystemService(WIFI_SERVICE) as WifiManager
             val wifiInfo = wifiManager.connectionInfo
             val ipInt = wifiInfo.ipAddress
             if (ipInt != 0) {
@@ -423,9 +429,9 @@ class WebImActivity : ComponentActivity() {
             val interfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
             for (nic in interfaces) {
                 val addresses = Collections.list(nic.inetAddresses)
-                for (addr in addresses) {
-                    if (!addr.isLoopbackAddress && addr is InetAddress) {
-                        val ip = addr.hostAddress ?: continue
+                for (adder in addresses) {
+                    if (!adder.isLoopbackAddress && adder is InetAddress) {
+                        val ip = adder.hostAddress ?: continue
                         if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) {
                             return ip
                         }
@@ -452,21 +458,21 @@ class WebImActivity : ComponentActivity() {
         destroyed = true
         try {
             wsClient?.close()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // ignore
         }
         networkCallback?.let { cb ->
             try {
-                (getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)
+                (getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager)
                     ?.unregisterNetworkCallback(cb)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 // ignore
             }
         }
         networkCallback = null
         try {
             unbindService(connection)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // ignore
         }
     }

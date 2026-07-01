@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Base64
 import android.util.Log
 import java.io.File
-import java.io.InputStream
 
 class ChatService(private val context: Context) {
     companion object {
@@ -27,8 +26,6 @@ class ChatService(private val context: Context) {
     }
 
     fun getDeviceId(): String = localDeviceId
-
-    fun getFilesDir2(): File = filesDir
 
     @Synchronized
     fun appendMessage(rawJson: String) {
@@ -59,31 +56,6 @@ class ChatService(private val context: Context) {
         val dest = File(filesDir, storedName)
         dest.outputStream().use { it.write(bytes) }
         return storedName
-    }
-
-    @Synchronized
-    fun storeLocalFile(source: File, displayName: String = source.name): String {
-        val storedName = uniqueFileName(cleanFileName(displayName))
-        val dest = File(filesDir, storedName)
-        source.copyTo(dest, overwrite = true)
-        return storedName
-    }
-
-    @Synchronized
-    fun storeLocalStream(input: InputStream, displayName: String): Pair<String, Long> {
-        val storedName = uniqueFileName(cleanFileName(displayName))
-        val dest = File(filesDir, storedName)
-        var total = 0L
-        dest.outputStream().use { output ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read <= 0) break
-                output.write(buffer, 0, read)
-                total += read
-            }
-        }
-        return storedName to total
     }
 
     @Synchronized
