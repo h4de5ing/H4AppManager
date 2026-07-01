@@ -29,6 +29,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
@@ -324,10 +325,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun optimizeSystemBars() {
-        window.statusBarColor = getColor(R.color.colorPrimaryDark)
+        // 状态栏透明：内容绘制到状态栏下方，状态栏区域露出窗口浅白背景，
+        // 故状态栏图标用深色（isAppearanceLightStatusBars=true）以保证可读。
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = getColor(R.color.surface)
         val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightStatusBars = true
         controller.isAppearanceLightNavigationBars = true
     }
 
