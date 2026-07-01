@@ -27,6 +27,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import com.github.appmanager.im.ChatSerializer
 import com.github.appmanager.im.ChatService
 import com.github.appmanager.im.RoomMessage
@@ -103,11 +106,20 @@ class WebImActivity : ComponentActivity() {
     }
 
     private fun optimizeSystemBars() {
-        window.statusBarColor = ContextCompat.getColor(this, R.color.colorPrimaryDark)
+        // 状态栏透明：内容绘制到状态栏下方，状态栏区域露出窗口浅白背景，
+        // 故状态栏图标用深色（isAppearanceLightStatusBars=true）以保证可读。
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = ContextCompat.getColor(this, R.color.surface)
         val controller = androidx.core.view.WindowInsetsControllerCompat(window, window.decorView)
-        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightStatusBars = true
         controller.isAppearanceLightNavigationBars = true
+        // 应用状态栏 inset，避免顶部工具栏被状态栏遮挡。
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
     }
 
     private fun setupListeners() {

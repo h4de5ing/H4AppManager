@@ -32,6 +32,7 @@ class HttpFileServerService : Service() {
         const val CHANNEL_ID = "HttpFileServerChannel"
         var serverPort: Int = 8080
         var wsPort: Int = 8081
+
         @Volatile
         private var httpRunning = false
         private var serverThread: Thread? = null
@@ -151,20 +152,58 @@ class HttpFileServerService : Service() {
             }
 
             when {
-                path == "/" || path == "/index.html" -> serveAsset(socket, "index.html", "text/html; charset=utf-8")
+                path == "/" || path == "/index.html" -> serveAsset(
+                    socket,
+                    "index.html",
+                    "text/html; charset=utf-8"
+                )
+
                 path == "/file.html" -> serveAsset(socket, "file.html", "text/html; charset=utf-8")
                 path == "/api/info" -> handleGetInfo(socket)
-                path.startsWith("/api/upload") && method == "POST" -> handleUpload(socket, buffer, bytesRead)
+                path.startsWith("/api/upload") && method == "POST" -> handleUpload(
+                    socket,
+                    buffer,
+                    bytesRead
+                )
+
                 rawPathOnly.startsWith("/files/") -> {
                     val fileName = decodeUri(rawPathOnly.removePrefix("/files/"))
                     serveFileFromCache(socket, fileName)
                 }
+
                 path == "/api/files/list" && method == "GET" -> handleFileList(socket, queryString)
-                path == "/api/files/download" && method == "GET" -> handleFileDownload(socket, queryString)
-                path == "/api/files/upload" && method == "POST" -> handleFileUpload(socket, buffer, bytesRead)
-                path == "/api/files/delete" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileDelete)
-                path == "/api/files/rename" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileRename)
-                path == "/api/files/mkdir" && method == "POST" -> handleFileOp(socket, buffer, bytesRead, ::handleFileMkdir)
+                path == "/api/files/download" && method == "GET" -> handleFileDownload(
+                    socket,
+                    queryString
+                )
+
+                path == "/api/files/upload" && method == "POST" -> handleFileUpload(
+                    socket,
+                    buffer,
+                    bytesRead
+                )
+
+                path == "/api/files/delete" && method == "POST" -> handleFileOp(
+                    socket,
+                    buffer,
+                    bytesRead,
+                    ::handleFileDelete
+                )
+
+                path == "/api/files/rename" && method == "POST" -> handleFileOp(
+                    socket,
+                    buffer,
+                    bytesRead,
+                    ::handleFileRename
+                )
+
+                path == "/api/files/mkdir" && method == "POST" -> handleFileOp(
+                    socket,
+                    buffer,
+                    bytesRead,
+                    ::handleFileMkdir
+                )
+
                 else -> sendResponse(socket, 404, "text/plain", "Not found")
             }
         } catch (e: Exception) {
@@ -181,7 +220,8 @@ class HttpFileServerService : Service() {
     private fun handleGetInfo(socket: Socket) {
         val localId = jsonEscape(chatService.getDeviceId())
         val serverIp = getLocalIpAddress()
-        val info = "{\"baseUrl\":\"http://$serverIp:$serverPort\",\"wsUrl\":\"ws://$serverIp:$wsPort\",\"localId\":\"$localId\"}"
+        val info =
+            "{\"baseUrl\":\"http://$serverIp:$serverPort\",\"wsUrl\":\"ws://$serverIp:$wsPort\",\"localId\":\"$localId\"}"
         sendResponse(socket, 200, "application/json; charset=utf-8", info)
     }
 
@@ -190,7 +230,12 @@ class HttpFileServerService : Service() {
             val body = readRequestBody(socket, raw, rawLen)
             val upload = ChatSerializer.deserializeUpload(body)
             if (upload == null) {
-                sendResponse(socket, 400, "application/json", "{\"error\":\"invalid upload request\"}")
+                sendResponse(
+                    socket,
+                    400,
+                    "application/json",
+                    "{\"error\":\"invalid upload request\"}"
+                )
                 return
             }
 
@@ -201,11 +246,20 @@ class HttpFileServerService : Service() {
                 socket,
                 200,
                 "application/json; charset=utf-8",
-                "{\"success\":true,\"url\":\"${jsonEscape(url)}\",\"fileName\":\"${jsonEscape(storedName)}\"}"
+                "{\"success\":true,\"url\":\"${jsonEscape(url)}\",\"fileName\":\"${
+                    jsonEscape(
+                        storedName
+                    )
+                }\"}"
             )
         } catch (e: Exception) {
             Log.e(TAG, "Upload failed", e)
-            sendResponse(socket, 500, "application/json", "{\"error\":\"${jsonEscape(e.message ?: "upload failed")}\"}")
+            sendResponse(
+                socket,
+                500,
+                "application/json",
+                "{\"error\":\"${jsonEscape(e.message ?: "upload failed")}\"}"
+            )
         }
     }
 
@@ -229,14 +283,18 @@ class HttpFileServerService : Service() {
     private fun handleFileList(socket: Socket, query: String) {
         val dir = parseQueryDir(query)
         if (!fileService.isPermissionGranted()) {
-            sendResponse(socket, 403, "application/json; charset=utf-8",
-                "{\"success\":false,\"cwd\":\"\",\"entries\":[],\"code\":\"PERMISSION_DENIED\"}")
+            sendResponse(
+                socket, 403, "application/json; charset=utf-8",
+                "{\"success\":false,\"cwd\":\"\",\"entries\":[],\"code\":\"PERMISSION_DENIED\"}"
+            )
             return
         }
         val result = fileService.list(dir)
         if (result == null) {
-            sendResponse(socket, 404, "application/json; charset=utf-8",
-                "{\"success\":false,\"cwd\":\"\",\"entries\":[],\"code\":\"NOT_FOUND\"}")
+            sendResponse(
+                socket, 404, "application/json; charset=utf-8",
+                "{\"success\":false,\"cwd\":\"\",\"entries\":[],\"code\":\"NOT_FOUND\"}"
+            )
             return
         }
         val (cwd, entries) = result
@@ -277,10 +335,16 @@ class HttpFileServerService : Service() {
 
     private fun handleFileUpload(socket: Socket, raw: ByteArray, rawLen: Int) {
         val body = readRequestBody(socket, raw, rawLen)
-        val req = try { fileJson.decodeFromString(FileUploadRequest.serializer(), body) } catch (e: Exception) { null }
+        val req = try {
+            fileJson.decodeFromString(FileUploadRequest.serializer(), body)
+        } catch (e: Exception) {
+            null
+        }
         if (req == null) {
-            sendResponse(socket, 400, "application/json; charset=utf-8",
-                "{\"success\":false,\"code\":\"INVALID_PATH\"}")
+            sendResponse(
+                socket, 400, "application/json; charset=utf-8",
+                "{\"success\":false,\"code\":\"INVALID_PATH\"}"
+            )
             return
         }
         val res = fileService.upload(req.dir, req.name, req.data)
@@ -288,19 +352,31 @@ class HttpFileServerService : Service() {
     }
 
     private fun handleFileDelete(body: String): FileOpResponse {
-        val req = try { fileJson.decodeFromString(FileDeleteRequest.serializer(), body) } catch (e: Exception) { null }
+        val req = try {
+            fileJson.decodeFromString(FileDeleteRequest.serializer(), body)
+        } catch (e: Exception) {
+            null
+        }
             ?: return FileOpResponse(success = false, code = "INVALID_PATH")
         return fileService.delete(req.dir, req.name, req.isDir)
     }
 
     private fun handleFileRename(body: String): FileOpResponse {
-        val req = try { fileJson.decodeFromString(FileRenameRequest.serializer(), body) } catch (e: Exception) { null }
+        val req = try {
+            fileJson.decodeFromString(FileRenameRequest.serializer(), body)
+        } catch (e: Exception) {
+            null
+        }
             ?: return FileOpResponse(success = false, code = "INVALID_PATH")
         return fileService.rename(req.dir, req.oldName, req.newName)
     }
 
     private fun handleFileMkdir(body: String): FileOpResponse {
-        val req = try { fileJson.decodeFromString(FileMkdirRequest.serializer(), body) } catch (e: Exception) { null }
+        val req = try {
+            fileJson.decodeFromString(FileMkdirRequest.serializer(), body)
+        } catch (e: Exception) {
+            null
+        }
             ?: return FileOpResponse(success = false, code = "INVALID_PATH")
         return fileService.mkdir(req.dir, req.name)
     }
@@ -379,7 +455,12 @@ class HttpFileServerService : Service() {
 
             val alreadyRead = maxOf(0, rawLen - bodyOffset)
             if (contentLength <= 0) {
-                return if (alreadyRead > 0) String(raw, bodyOffset, alreadyRead, StandardCharsets.UTF_8) else ""
+                return if (alreadyRead > 0) String(
+                    raw,
+                    bodyOffset,
+                    alreadyRead,
+                    StandardCharsets.UTF_8
+                ) else ""
             }
             if (alreadyRead >= contentLength) {
                 return String(raw, bodyOffset, contentLength, StandardCharsets.UTF_8)
@@ -419,7 +500,12 @@ class HttpFileServerService : Service() {
         return -1
     }
 
-    private fun sendResponse(socket: Socket, statusCode: Int, contentType: String, content: String) {
+    private fun sendResponse(
+        socket: Socket,
+        statusCode: Int,
+        contentType: String,
+        content: String
+    ) {
         try {
             val statusText = when (statusCode) {
                 200 -> "OK"
