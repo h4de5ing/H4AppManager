@@ -59,17 +59,16 @@ class MainActivity : ComponentActivity() {
     private var isServerBound = false
     private var serverConnection: ServiceConnection? = null
 
-    private val exportApkLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
-        ) { uri ->
-            val app = pendingExportApp
-            pendingExportApp = null
-            if (uri == null || app == null) {
-                return@registerForActivityResult
-            }
-            exportApk(app, uri)
+    private val exportApkLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
+    ) { uri ->
+        val app = pendingExportApp
+        pendingExportApp = null
+        if (uri == null || app == null) {
+            return@registerForActivityResult
         }
+        exportApk(app, uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -139,8 +138,7 @@ class MainActivity : ComponentActivity() {
                 PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
             )
         } else {
-            @Suppress("DEPRECATION")
-            packageManager.getInstalledPackages(PackageManager.GET_SIGNATURES)
+            @Suppress("DEPRECATION") packageManager.getInstalledPackages(PackageManager.GET_SIGNATURES)
         }
 
         return packages.mapNotNull { packageInfo ->
@@ -150,8 +148,8 @@ class MainActivity : ComponentActivity() {
 
     private fun PackageInfo.toInstalledAppOrNull(): InstalledApp? {
         val appInfo = applicationInfo ?: return null
-        val label = appInfo.loadLabel(packageManager).toString().takeIf { it.isNotBlank() }
-            ?: packageName
+        val label =
+            appInfo.loadLabel(packageManager).toString().takeIf { it.isNotBlank() } ?: packageName
         val apkPath = appInfo.sourceDir.orEmpty()
         val apkFile = apkPath.takeIf { it.isNotBlank() }?.let(::File)
 
@@ -177,9 +175,8 @@ class MainActivity : ComponentActivity() {
 
         val filteredApps = allApps.filter { app ->
             val matchesSystem = showSystemApps || !app.isSystem
-            val matchesQuery = query.isBlank() ||
-                app.label.lowercase(Locale.getDefault()).contains(query) ||
-                app.packageName.lowercase(Locale.getDefault()).contains(query)
+            val matchesQuery = query.isBlank() || app.label.lowercase(Locale.getDefault())
+                .contains(query) || app.packageName.lowercase(Locale.getDefault()).contains(query)
             matchesSystem && matchesQuery
         }
 
@@ -216,16 +213,28 @@ class MainActivity : ComponentActivity() {
             app.signatureDigests.sha256,
         )
 
-        AlertDialog.Builder(this)
-            .setTitle(app.label)
-            .setIcon(app.icon)
-            .setMessage(details)
+        AlertDialog.Builder(this).setTitle(app.label).setIcon(app.icon).setMessage(details)
             .setPositiveButton(R.string.export_apk) { _, _ ->
                 pendingExportApp = app
                 exportApkLauncher.launch(buildExportFileName(app))
+            }.setNeutralButton(R.string.open_app) { _, _ ->
+                launchApp(app)
+            }.setNegativeButton(android.R.string.cancel, null).show()
+    }
+
+    private fun launchApp(app: InstalledApp) {
+        val intent = packageManager.getLaunchIntentForPackage(app.packageName)
+        if (intent != null) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to launch ${app.packageName}", e)
+                Toast.makeText(this, "启动失败", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        } else {
+            Toast.makeText(this, "该应用无可启动的入口", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun exportApk(app: InstalledApp, targetUri: Uri) {
@@ -262,8 +271,10 @@ class MainActivity : ComponentActivity() {
 
     private fun buildExportFileName(app: InstalledApp): String {
         val versionName = app.versionName.ifBlank { getString(R.string.unknown_value) }
-        return "${app.label}-${app.packageName}-${versionName}.apk"
-            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        return "${app.label}-${app.packageName}-${versionName}.apk".replace(
+                Regex("[\\\\/:*?\"<>|]"),
+                "_"
+            )
     }
 
     private fun formatTime(timeMillis: Long): String {
@@ -283,6 +294,7 @@ class MainActivity : ComponentActivity() {
                     isServerBound = true
                     Log.d("MainActivity", "HTTP File Server service bound")
                 }
+
                 override fun onServiceDisconnected(name: ComponentName?) {
                     isServerBound = false
                     Log.d("MainActivity", "HTTP File Server service unbound")
@@ -313,17 +325,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun stopHttpFileServer() {
-        try {
-            serverConnection?.let { conn ->
-                unbindService(conn)
-                isServerBound = false
-            }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Failed to stop server", e)
-        }
-    }
-
     private fun optimizeSystemBars() {
         // 状态栏透明：内容绘制到状态栏下方，状态栏区域露出窗口浅白背景，
         // 故状态栏图标用深色（isAppearanceLightStatusBars=true）以保证可读。
@@ -339,8 +340,7 @@ class MainActivity : ComponentActivity() {
         val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.signingInfo?.apkContentsSigners?.map { it.toByteArray() }.orEmpty()
         } else {
-            @Suppress("DEPRECATION")
-            packageInfo.signatures?.map { it.toByteArray() }.orEmpty()
+            @Suppress("DEPRECATION") packageInfo.signatures?.map { it.toByteArray() }.orEmpty()
         }
 
         if (signatures.isEmpty()) {
@@ -386,8 +386,8 @@ class MainActivity : ComponentActivity() {
         private val items = mutableListOf<InstalledApp>()
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
-            val itemView = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_app, parent, false)
+            val itemView =
+                LayoutInflater.from(parent.context).inflate(R.layout.item_app, parent, false)
             return AppViewHolder(itemView)
         }
 
