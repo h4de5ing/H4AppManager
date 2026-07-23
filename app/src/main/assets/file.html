@@ -20,21 +20,35 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .btn-upload { background: #2563EB; color: white; }
 .btn:active { transform: scale(0.96); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.search-wrap { position: relative; margin-top: 10px; }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); opacity: 0.72; pointer-events: none; }
+.search-input { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,0.28); border-radius: 7px; padding: 0 34px 0 34px; background: rgba(255,255,255,0.14); color: white; font-size: 13px; outline: none; }
+.search-input::placeholder { color: rgba(255,255,255,0.72); }
+.search-input:focus { border-color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.2); }
+.search-clear { position: absolute; right: 7px; top: 50%; transform: translateY(-50%); width: 25px; height: 25px; border: 0; border-radius: 50%; background: transparent; color: white; cursor: pointer; font-size: 17px; display: none; }
+.search-clear:hover { background: rgba(255,255,255,0.16); }
 .error-banner { background: #fee; color: #c00; padding: 10px; text-align: center; font-size: 13px; }
 .info-banner { background: #fef3c7; color: #92400e; padding: 10px; text-align: center; font-size: 13px; }
 .list-container { flex: 1; overflow-y: auto; padding: 8px; }
-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; }
 th, td { padding: 10px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #eee; }
 th { background: #fafafa; font-weight: 600; color: #5F6B67; font-size: 12px; }
 td .name { display: flex; align-items: center; gap: 8px; }
 td .icon { font-size: 16px; }
-td .name-text { cursor: pointer; }
+td .name-text { color: #1f2937; background: none; border: 0; padding: 0; font: inherit; text-align: left; }
+td button.name-text { cursor: pointer; }
+td button.name-text:hover { text-decoration: underline; }
 td .name-text.dir { color: #0F766E; font-weight: 500; }
 .row:hover { background: #f7fafa; }
-.actions { white-space: nowrap; }
-.actions a, .actions button { font-size: 12px; color: #2563EB; background: none; border: none; cursor: pointer; padding: 2px 6px; }
-.actions button.danger { color: #dc2626; }
-.actions button:hover { text-decoration: underline; }
+.actions { width: 54px; text-align: center; white-space: nowrap; }
+.more-btn { width: 32px; height: 30px; border: none; border-radius: 6px; background: transparent; color: #4b5563; cursor: pointer; font-size: 21px; line-height: 1; letter-spacing: 1px; }
+.more-btn:hover, .more-btn.active { background: #e8f3f1; color: #0F766E; }
+.context-menu { position: fixed; z-index: 20; min-width: 130px; padding: 5px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; box-shadow: 0 8px 24px rgba(15,23,42,0.16); display: none; }
+.context-menu.open { display: block; }
+.context-menu button, .context-menu a { width: 100%; display: flex; align-items: center; gap: 8px; border: 0; border-radius: 5px; padding: 8px 10px; background: transparent; color: #374151; text-decoration: none; font-size: 13px; text-align: left; cursor: pointer; }
+.context-menu button:hover, .context-menu a:hover { background: #f3f4f6; }
+.context-menu .danger { color: #dc2626; }
+.filter-summary { color: #6b7280; padding: 7px 4px 10px; font-size: 12px; }
 .empty { text-align: center; color: #9ca3af; padding: 40px; font-size: 14px; }
 .loading { text-align: center; color: #9ca3af; padding: 40px; font-size: 14px; }
 .hidden-input { display: none; }
@@ -51,16 +65,24 @@ td .name-text.dir { color: #0F766E; font-weight: 500; }
 <button class="btn btn-upload" onclick="document.getElementById('fileInput').click()">⬆ 上传</button>
 <input type="file" id="fileInput" class="hidden-input" onchange="handleFileSelect(event)">
 </div>
+<div class="search-wrap">
+<span class="search-icon">🔍</span>
+<input class="search-input" id="searchInput" type="search" placeholder="搜索当前目录中的文件和文件夹" autocomplete="off" oninput="applyFilter()">
+<button class="search-clear" id="searchClear" type="button" aria-label="清空搜索" onclick="clearSearch()">×</button>
+</div>
 </div>
 <div id="errorBanner" class="error-banner" style="display:none"></div>
 <div id="infoBanner" class="info-banner" style="display:none"></div>
 <div class="list-container">
 <div class="loading" id="listArea">正在加载...</div>
 </div>
+<div class="context-menu" id="contextMenu" role="menu"></div>
 
 <script>
 let serverBase = '';
 let cwd = '';   // 相对 /sdcard 的当前路径，根目录为空串
+let currentEntries = [];
+let activeMenuButton = null;
 
 function showError(msg) {
     const b = document.getElementById('errorBanner');
@@ -102,12 +124,22 @@ function iconFor(entry) {
     if (entry.isDir) return '📁';
     const n = entry.name.toLowerCase();
     if (/\.(png|jpg|jpeg|gif|bmp|webp)$/.test(n)) return '🖼️';
-    if (/\.(mp4|avi|mkv|mov|3gp)$/.test(n)) return '🎬';
-    if (/\.(mp3|wav|flac|aac)$/.test(n)) return '🎵';
+    if (/\.(mp4|webm|ogv|avi|mkv|mov|m4v|3gp)$/.test(n)) return '🎬';
+    if (/\.(mp3|wav|flac|aac|ogg|oga|m4a|opus)$/.test(n)) return '🎵';
     if (/\.(apk)$/.test(n)) return '📦';
     if (/\.(txt|md|log)$/.test(n)) return '📄';
     if (/\.(zip|rar|7z|tar|gz)$/.test(n)) return '🗜️';
     return '📄';
+}
+
+function isPreviewable(name) {
+    return /\.(png|jpe?g|gif|bmp|webp|svg|ico|avif|txt|md|log|csv|json|xml|html?|css|js|mjs|ts|kt|java|py|sh|ini|conf|ya?ml|pdf|mp4|webm|ogv|mov|m4v|3gp|mp3|wav|ogg|oga|m4a|aac|flac|opus)$/i.test(name);
+}
+
+function fileUrl(name, forceDownload) {
+    const rel = joinPath(cwd, name);
+    return serverBase + '/api/files/download?path=' + encodeURIComponent(rel)
+        + (forceDownload ? '&download=1' : '');
 }
 
 // 把 cwd 拆成面包屑段
@@ -138,6 +170,8 @@ function goUp() {
 
 async function loadList() {
     hideBanners();
+    currentEntries = [];
+    closeMenu();
     renderBreadcrumb();
     const area = document.getElementById('listArea');
     area.className = 'loading';
@@ -157,48 +191,110 @@ async function loadList() {
             area.innerHTML = '';
             return;
         }
-        renderList(data.entries || []);
+        currentEntries = data.entries || [];
+        applyFilter();
     } catch (e) {
         showError('加载失败: ' + e.message);
         area.innerHTML = '';
     }
 }
 
-function renderList(entries) {
+function applyFilter() {
+    const input = document.getElementById('searchInput');
+    const clear = document.getElementById('searchClear');
+    const query = input.value.trim().toLocaleLowerCase('zh-CN');
+    clear.style.display = query ? 'block' : 'none';
+    const filtered = query
+        ? currentEntries.filter(e => e.name.toLocaleLowerCase('zh-CN').includes(query))
+        : currentEntries;
+    renderList(filtered, query);
+}
+
+function clearSearch() {
+    const input = document.getElementById('searchInput');
+    input.value = '';
+    input.focus();
+    applyFilter();
+}
+
+function renderList(entries, query) {
+    closeMenu();
     const area = document.getElementById('listArea');
     if (entries.length === 0) {
         area.className = 'empty';
-        area.textContent = '空目录';
+        area.textContent = query ? '没有匹配的文件或文件夹' : '空目录';
         return;
     }
     area.className = '';
-    let html = '<table><thead><tr>'
+    let html = query
+        ? '<div class="filter-summary">找到 ' + entries.length + ' 个匹配项</div>'
+        : '';
+    html += '<table><thead><tr>'
         + '<th>名称</th><th class="col-size">大小</th><th class="col-modified">修改时间</th><th>操作</th>'
         + '</tr></thead><tbody>';
-    entries.forEach((e, idx) => {
-        const rel = joinPath(cwd, e.name);
+    entries.forEach(e => {
+        const encodedName = encodeURIComponent(e.name).replace(/'/g, '%27');
         if (e.isDir) {
             html += '<tr class="row"><td><div class="name"><span class="icon">' + iconFor(e) + '</span>'
-                + '<span class="name-text dir" onclick="enterDir(\'' + escJs(e.name) + '\')">' + escapeHtml(e.name) + '</span></div></td>'
+                + '<button class="name-text dir" data-action="open-dir" data-name="' + encodedName + '">' + escapeHtml(e.name) + '</button></div></td>'
                 + '<td class="col-size">-</td><td class="col-modified">' + formatTime(e.modified) + '</td>'
-                + '<td class="actions"><button onclick="renameEntry(\'' + escJs(e.name) + '\')">重命名</button>'
-                + '<button class="danger" onclick="deleteEntry(\'' + escJs(e.name) + '\',true)">删除</button></td></tr>';
+                + '<td class="actions"><button class="more-btn" data-action="menu" data-name="' + encodedName + '" data-dir="1" aria-label="打开操作菜单" aria-haspopup="menu">⋯</button></td></tr>';
         } else {
+            const nameElement = isPreviewable(e.name)
+                ? '<button class="name-text" data-action="preview" data-name="' + encodedName + '" title="点击预览">' + escapeHtml(e.name) + '</button>'
+                : '<span class="name-text">' + escapeHtml(e.name) + '</span>';
             html += '<tr class="row"><td><div class="name"><span class="icon">' + iconFor(e) + '</span>'
-                + '<span class="name-text">' + escapeHtml(e.name) + '</span></div></td>'
+                + nameElement + '</div></td>'
                 + '<td class="col-size">' + formatSize(e.size) + '</td><td class="col-modified">' + formatTime(e.modified) + '</td>'
-                + '<td class="actions"><a href="' + serverBase + '/api/files/download?path=' + encodeURIComponent(rel) + '" download>下载</a>'
-                + '<button onclick="renameEntry(\'' + escJs(e.name) + '\')">重命名</button>'
-                + '<button class="danger" onclick="deleteEntry(\'' + escJs(e.name) + '\',false)">删除</button></td></tr>';
+                + '<td class="actions"><button class="more-btn" data-action="menu" data-name="' + encodedName + '" data-dir="0" aria-label="打开操作菜单" aria-haspopup="menu">⋯</button></td></tr>';
         }
     });
     html += '</tbody></table>';
     area.innerHTML = html;
 }
 
-function escJs(s) {
-    // 转义用于内联 onclick 字符串参数
-    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+function openPreview(name) {
+    window.open(fileUrl(name, false), '_blank', 'noopener');
+}
+
+function showMenu(button, name, isDir) {
+    const menu = document.getElementById('contextMenu');
+    closeMenu();
+    activeMenuButton = button;
+    button.classList.add('active');
+    button.setAttribute('aria-expanded', 'true');
+
+    let html = '';
+    if (!isDir && isPreviewable(name)) {
+        html += '<button type="button" data-menu-action="preview">👁️ 预览</button>';
+    }
+    if (!isDir) {
+        html += '<a data-menu-action="download" href="' + fileUrl(name, true) + '" download>⬇️ 下载</a>';
+    }
+    html += '<button type="button" data-menu-action="rename">✏️ 重命名</button>'
+        + '<button type="button" class="danger" data-menu-action="delete">🗑️ 删除</button>';
+    menu.innerHTML = html;
+    menu.dataset.name = encodeURIComponent(name);
+    menu.dataset.dir = isDir ? '1' : '0';
+    menu.classList.add('open');
+
+    const rect = button.getBoundingClientRect();
+    const menuHeight = menu.offsetHeight;
+    const top = rect.bottom + menuHeight + 8 <= window.innerHeight
+        ? rect.bottom + 4
+        : Math.max(4, rect.top - menuHeight - 4);
+    menu.style.top = top + 'px';
+    menu.style.left = Math.max(4, rect.right - menu.offsetWidth) + 'px';
+}
+
+function closeMenu() {
+    const menu = document.getElementById('contextMenu');
+    menu.classList.remove('open');
+    if (activeMenuButton) {
+        activeMenuButton.classList.remove('active');
+        activeMenuButton.setAttribute('aria-expanded', 'false');
+        activeMenuButton = null;
+    }
 }
 
 function joinPath(dir, name) {
@@ -209,6 +305,38 @@ function enterDir(name) {
     cwd = joinPath(cwd, name);
     loadList();
 }
+
+document.getElementById('listArea').addEventListener('click', event => {
+    const target = event.target.closest('[data-action]');
+    if (!target) return;
+    const name = decodeURIComponent(target.dataset.name);
+    if (target.dataset.action === 'open-dir') enterDir(name);
+    if (target.dataset.action === 'preview') openPreview(name);
+    if (target.dataset.action === 'menu') {
+        event.stopPropagation();
+        if (activeMenuButton === target) closeMenu();
+        else showMenu(target, name, target.dataset.dir === '1');
+    }
+});
+
+document.getElementById('contextMenu').addEventListener('click', event => {
+    const target = event.target.closest('[data-menu-action]');
+    if (!target) return;
+    const name = decodeURIComponent(event.currentTarget.dataset.name);
+    const isDir = event.currentTarget.dataset.dir === '1';
+    const action = target.dataset.menuAction;
+    if (action === 'preview') openPreview(name);
+    if (action === 'rename') renameEntry(name);
+    if (action === 'delete') deleteEntry(name, isDir);
+    closeMenu();
+});
+
+document.addEventListener('click', closeMenu);
+window.addEventListener('resize', closeMenu);
+document.querySelector('.list-container').addEventListener('scroll', closeMenu, { passive: true });
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeMenu();
+});
 
 function showPermissionPrompt() {
     const area = document.getElementById('listArea');
