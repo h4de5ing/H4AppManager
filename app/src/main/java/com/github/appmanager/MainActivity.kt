@@ -44,6 +44,15 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    private companion object {
+        /**
+         * 仅保存在当前应用进程内。MainActivity 被关闭或因配置变化重建时可直接复用；
+         * 应用进程被系统杀死后缓存自然释放，下次启动重新扫描。
+         */
+        @Volatile
+        private var cachedApps: List<InstalledApp>? = null
+    }
+
     private val allApps = mutableListOf<InstalledApp>()
     private val appAdapter = AppAdapter()
     private var pendingExportApp: InstalledApp? = null
@@ -120,10 +129,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadApps() {
+        val cached = cachedApps
+        if (cached != null) {
+            allApps.clear()
+            allApps.addAll(cached)
+            applyFilters()
+            showLoading(false)
+            return
+        }
+
         showLoading(true)
         Thread {
             val apps = queryInstalledApps()
+            cachedApps = apps
             runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
                 allApps.clear()
                 allApps.addAll(apps)
                 applyFilters()
