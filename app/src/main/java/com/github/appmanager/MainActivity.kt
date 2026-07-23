@@ -2,6 +2,7 @@ package com.github.appmanager
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -27,6 +28,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -233,13 +235,24 @@ class MainActivity : ComponentActivity() {
             app.signatureDigests.sha256,
         )
 
-        AlertDialog.Builder(this).setTitle(app.label).setIcon(app.icon).setMessage(details)
+        val shareButton = Button(this).apply {
+            text = getString(R.string.share_apk)
+            isAllCaps = false
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(app.label).setIcon(app.icon).setMessage(details)
+            .setView(shareButton)
             .setPositiveButton(R.string.export_apk) { _, _ ->
                 pendingExportApp = app
                 exportApkLauncher.launch(buildExportFileName(app))
             }.setNeutralButton(R.string.open_app) { _, _ ->
                 launchApp(app)
             }.setNegativeButton(android.R.string.cancel, null).show()
+
+        shareButton.setOnClickListener {
+            dialog.dismiss()
+            shareApk(app)
+        }
     }
 
     private fun launchApp(app: InstalledApp) {
@@ -280,6 +293,64 @@ class MainActivity : ComponentActivity() {
                         this,
                         getString(
                             R.string.export_failed,
+                            throwable.message ?: getString(R.string.unknown_value),
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun shareApk(app: InstalledApp) {
+        Toast.makeText(this, R.string.preparing_apk_share, Toast.LENGTH_SHORT).show()
+        Thread {
+            val result = runCatching {
+                require(app.apkPath.isNotBlank()) { getString(R.string.export_source_missing) }
+                val source = File(app.apkPath)
+                require(source.exists()) { getString(R.string.export_source_missing) }
+
+                val shareDir = File(cacheDir, "shared_apks").apply { mkdirs() }
+                val target = File(shareDir, buildExportFileName(app))
+                source.copyTo(target, overwrite = true)
+                FileProvider.getUriForFile(
+                    this,
+                    "$packageName.fileprovider",
+                    target,
+                )
+            }
+
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                result.onSuccess { uri ->
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/vnd.android.package-archive"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        clipData = ClipData.newRawUri(getString(R.string.share_apk), uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    runCatching {
+                        startActivity(
+                            Intent.createChooser(
+                                shareIntent,
+                                getString(R.string.share_apk_chooser),
+                            )
+                        )
+                    }.onFailure { throwable ->
+                        Toast.makeText(
+                            this,
+                            getString(
+                                R.string.share_apk_failed,
+                                throwable.message ?: getString(R.string.unknown_value),
+                            ),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }.onFailure { throwable ->
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.share_apk_failed,
                             throwable.message ?: getString(R.string.unknown_value),
                         ),
                         Toast.LENGTH_LONG,
