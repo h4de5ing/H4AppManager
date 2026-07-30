@@ -372,7 +372,7 @@ class HttpFileServerService : Service() {
             }
             if ((fileLength == 0L && rangeMatch != null) || (fileLength > 0 && (start !in 0..<fileLength || end < start))) {
                 val response =
-                    "HTTP/1.1 416 Range Not Satisfiable\r\n" + "Content-Range: bytes */$fileLength\r\n" + "Content-Length: 0\r\nConnection: close\r\n\r\n"
+                    "HTTP/1.1 416 Range Not Satisfiable\r\nContent-Range: bytes */$fileLength\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
                 socket.outputStream.write(response.toByteArray(StandardCharsets.UTF_8))
                 socket.outputStream.flush()
                 return
@@ -456,7 +456,7 @@ class HttpFileServerService : Service() {
     private fun handleFileMkdir(body: String): FileOpResponse {
         val req = try {
             fileJson.decodeFromString(FileMkdirRequest.serializer(), body)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         } ?: return FileOpResponse(success = false, code = "INVALID_PATH")
         return fileService.mkdir(req.dir, req.name)
@@ -492,7 +492,7 @@ class HttpFileServerService : Service() {
                 input.readBytes().toString(StandardCharsets.UTF_8)
             }
             sendResponse(socket, 200, contentType, content)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             sendResponse(socket, 404, "text/plain", "Asset not found: $assetName")
         }
     }
@@ -555,7 +555,7 @@ class HttpFileServerService : Service() {
             System.arraycopy(raw, bodyOffset, full, 0, alreadyRead)
             System.arraycopy(rest, 0, full, alreadyRead, read)
             String(full, 0, alreadyRead + read, StandardCharsets.UTF_8)
-        } catch (e: SocketTimeoutException) {
+        } catch (_: SocketTimeoutException) {
             ""
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read request body", e)
