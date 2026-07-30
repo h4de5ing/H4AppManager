@@ -1,13 +1,16 @@
 package com.github.appmanager
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.github.appmanager.im.ChatSerializer
@@ -43,6 +46,8 @@ class HttpFileServerService : Service() {
     private lateinit var chatService: ChatService
     private lateinit var fileService: FileService
     private var wsServer: ImWebSocketServer? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private val fileJson = Json {
         ignoreUnknownKeys = true
@@ -56,6 +61,7 @@ class HttpFileServerService : Service() {
         fileService = FileService(applicationContext)
         createNotificationChannel()
         startForeground(1, buildNotification())
+        acquireWakeLocks()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -77,10 +83,57 @@ class HttpFileServerService : Service() {
             Log.e(TAG, "Error stopping websocket server", e)
         }
         wsServer = null
+        releaseWakeLocks()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /**
+     * 后台/灭屏时 Wi-Fi 射频会休眠、设备可能进入 Doze，
+     * 导致远程浏览器发到 :8080 的连接无法送达 serverSocket.accept()（表现为请求一直 pending）。
+     * 持有 WifiLock + PARTIAL_WAKE_LOCK，保证射频与 CPU 在服务存活期间始终活跃。
+     */
+    @SuppressLint("InvalidWakeLockTag")
+    private fun acquireWakeLocks() {
+        try {
+            val wifiManager = getSystemService(WIFI_SERVICE) as WifiManager
+            wifiLock = wifiManager.createWifiLock(
+                WifiManager.WIFI_MODE_FULL_HIGH_PERF, "H4HttpServerWifiLock"
+            ).apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to acquire WifiLock", e)
+        }
+        try {
+            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK, "H4HttpServerWakeLock"
+            ).apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to acquire WakeLock", e)
+        }
+    }
+
+    private fun releaseWakeLocks() {
+        try {
+            wifiLock?.let { if (it.isHeld) it.release() }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to release WifiLock", e)
+        }
+        wifiLock = null
+        try {
+            wakeLock?.let { if (it.isHeld) it.release() }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to release WakeLock", e)
+        }
+        wakeLock = null
+    }
 
     @Synchronized
     private fun startHttpServerIfNeeded() {

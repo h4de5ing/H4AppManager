@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.0"
+agp = "9.3.1"
 compileSdk = "37"
 minSdk = "24"
 targetSdk = "37"
@@ -9,7 +9,7 @@ androidx-activity = "1.13.0"
 androidx-recyclerview = "1.4.0"
 kotlinx-serialization = "1.11.0"
 kotlinx-serialization-plugin = "2.4.10"
-okio = "3.18.0"
+okio = "3.18.1"
 websockets = "1.6.0"
 
 
