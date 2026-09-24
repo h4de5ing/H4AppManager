@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The approved modular H, centered within the adaptive icon safe area. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.8125"
+        android:scaleY="0.8125"
+        android:translateX="28"
+        android:translateY="29.625">
+        <path
+            android:fillColor="@color/launcher_icon_foreground"
+            android:pathData="M6,0 H18 C21.3137,0 24,2.6863 24,6 V21 C24,23.2091 25.7909,25 28,25 H36 C38.2091,25 40,23.2091 40,21 V6 C40,2.6863 42.6863,0 46,0 H58 C61.3137,0 64,2.6863 64,6 V20 C64,23.3137 61.3137,26 58,26 H49.5 C47.4289,26 45.75,27.6789 45.75,29.75 C45.75,31.8211 47.4289,33.5 49.5,33.5 H58 C61.3137,33.5 64,36.1863 64,39.5 V54 C64,57.3137 61.3137,60 58,60 H46 C42.6863,60 40,57.3137 40,54 V39 C40,36.7909 38.2091,35 36,35 H28 C25.7909,35 24,36.7909 24,39 V54 C24,57.3137 21.3137,60 18,60 H6 C2.6863,60 0,57.3137 0,54 V39.5 C0,36.1863 2.6863,33.5 6,33.5 H14.5 C16.5711,33.5 18.25,31.8211 18.25,29.75 C18.25,27.6789 16.5711,26 14.5,26 H6 C2.6863,26 0,23.3137 0,20 V6 C0,2.6863 2.6863,0 6,0 Z" />
+        <path
+            android:fillColor="@color/launcher_icon_accent"
+            android:pathData="M46,0 H58 C61.3137,0 64,2.6863 64,6 V20 C64,23.3137 61.3137,26 58,26 H45 C42.2386,26 40,23.7614 40,21 V6 C40,2.6863 42.6863,0 46,0 Z" />
+    </group>
+</vector>
