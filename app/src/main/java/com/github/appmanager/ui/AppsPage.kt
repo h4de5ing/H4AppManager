@@ -118,6 +118,8 @@ class AppsPage(
         root.findViewById<View>(R.id.server_chip).setOnClickListener { onServerChipClick() }
 
         refreshServerState()
+        // 加载期间先显示 0，避免筛选芯片是空白气泡；加载完成后由 applyFilters 更新。
+        updateFilterBar(userCount = 0, systemCount = 0)
         loadApps()
     }
 
@@ -223,17 +225,21 @@ class AppsPage(
             Sort.UPDATED -> filteredApps.sortedByDescending { it.lastUpdateTime }
         }
 
+        updateFilterBar(userCount, systemCount)
+
+        appAdapter.submitList(sortedApps)
+        appListView.scrollToPosition(0)
+        emptyView.isVisible = sortedApps.isEmpty() && !loadingView.isVisible
+        titleCountView.text = activity.getString(R.string.app_count, sortedApps.size, allApps.size)
+    }
+
+    private fun updateFilterBar(userCount: Int, systemCount: Int) {
         filterUser.text = activity.getString(R.string.filter_user, userCount)
         filterSystem.text = activity.getString(R.string.filter_system, systemCount)
         filterUser.isSelected = filter == Filter.USER
         filterSystem.isSelected = filter == Filter.SYSTEM
         filterAll.isSelected = filter == Filter.ALL
         sortButton.setText(sort.labelRes)
-
-        appAdapter.submitList(sortedApps)
-        appListView.scrollToPosition(0)
-        emptyView.isVisible = sortedApps.isEmpty() && !loadingView.isVisible
-        titleCountView.text = activity.getString(R.string.app_count, sortedApps.size, allApps.size)
     }
 
     private fun showLoading(visible: Boolean) {

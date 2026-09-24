@@ -2,80 +2,213 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IM 即时通讯</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>H4 聊天室</title>
 <style>
+:root {
+    --primary: #0F766E; --primary-strong: #115E59; --primary-soft: #CCFBF1; --primary-tint: #E7F6F3; --on-primary: #FFFFFF;
+    --accent: #F59E0B; --accent-soft: #FEF3C7; --accent-text: #B45309;
+    --danger: #DC2626; --success: #22C55E;
+    --bg: #F4F7F5; --surface: #FFFFFF; --surface-2: #EEF3F1; --line: #E1E8E5;
+    --text: #14211D; --text-2: #5F6B67; --text-3: #8A9591;
+    --shadow: 0 1px 2px rgba(16, 40, 34, .06), 0 2px 8px rgba(16, 40, 34, .06);
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --primary: #2DD4BF; --primary-strong: #5EEAD4; --primary-soft: #134E4A; --primary-tint: #16302C; --on-primary: #04201C;
+        --accent: #FBBF24; --accent-soft: #3A2E10; --accent-text: #FBBF24;
+        --danger: #F87171;
+        --bg: #0F1513; --surface: #18201E; --surface-2: #212B28; --line: #2A3532;
+        --text: #E6EEEB; --text-2: #A3B0AC; --text-3: #75827E;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+    }
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
-.header { background: #0F766E; color: white; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; }
-.header h1 { font-size: 18px; font-weight: 600; }
-.header .info { font-size: 11px; opacity: 0.85; }
-.chat-container { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-.message { max-width: 75%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
-.message.sent { align-self: flex-end; background: #0F766E; color: white; border-bottom-right-radius: 4px; }
-.message.received { align-self: flex-start; background: white; color: #14211D; border-bottom-left-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-.message .time { font-size: 10px; opacity: 0.7; margin-top: 4px; text-align: right; }
-.message .source-label { font-size: 10px; opacity: 0.75; margin-bottom: 2px; }
-.message .file-info { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.1); padding: 8px; border-radius: 8px; margin-top: 6px; cursor: pointer; }
-.message .file-info:hover { background: rgba(0,0,0,0.2); }
-.message .file-info .file-name { font-size: 13px; font-weight: 500; }
-.message .file-info .file-size { font-size: 11px; opacity: 0.8; }
-.system-msg { align-self: center; background: rgba(0,0,0,0.08); color: #5F6B67; font-size: 12px; padding: 4px 12px; border-radius: 12px; }
-.input-area { background: white; padding: 10px 12px; display: flex; align-items: flex-end; gap: 8px; border-top: 1px solid #e0e0e0; }
-.input-area textarea { flex: 1; border: 1px solid #ddd; border-radius: 20px; padding: 10px 14px; font-size: 14px; resize: none; max-height: 100px; min-height: 40px; outline: none; font-family: inherit; }
-.input-area textarea:focus { border-color: #0F766E; }
-.input-area .btn { width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
-.btn-send { background: #0F766E; color: white; }
-.btn-file { background: #F59E0B; color: white; }
-.btn-send:disabled { background: #ccc; cursor: not-allowed; }
-.btn-file:active { transform: scale(0.95); }
-.btn-send:active { transform: scale(0.95); }
-.error-banner { background: #fee; color: #c00; padding: 10px; text-align: center; font-size: 13px; }
-.hidden-input { display: none; }
+html, body { height: 100%; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+}
+svg.ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.wrap { width: 100%; max-width: 880px; margin: 0 auto; }
+
+/* 顶栏 */
+.topbar { flex: none; border-bottom: 1px solid var(--line); background: var(--bg); }
+.topbar .wrap { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.brand { width: 38px; height: 38px; border-radius: 12px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; font-weight: 800; font-size: 14px; flex: none; }
+.title { flex: 1; min-width: 0; }
+.title h1 { font-size: 18px; font-weight: 700; line-height: 1.3; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+.dot.online { background: var(--success); box-shadow: 0 0 0 3px rgba(34, 197, 94, .18); }
+.nav-link {
+    display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 12px;
+    background: var(--surface); box-shadow: var(--shadow); color: var(--text); text-decoration: none; font-size: 13px; font-weight: 600; flex: none;
+}
+.nav-link svg { color: var(--accent); }
+.nav-link:hover { background: var(--surface-2); }
+
+/* 提示条 */
+.banner { display: none; align-items: center; gap: 8px; margin: 10px 16px 0; padding: 9px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-text); font-size: 13px; }
+.banner.show { display: flex; }
+.banner svg { width: 16px; height: 16px; }
+
+/* 消息区 */
+.chat-container { flex: 1; overflow-y: auto; }
+.chat-inner { padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 4px; min-height: 100%; }
+.loading, .empty { margin: auto; text-align: center; color: var(--text-3); font-size: 13px; line-height: 1.8; }
+.day { align-self: center; font-size: 11px; color: var(--text-3); padding: 2px 10px; border-radius: 999px; background: var(--surface-2); margin: 10px 0 6px; }
+.system-msg { align-self: center; background: var(--surface-2); color: var(--text-2); font-size: 12px; padding: 3px 12px; border-radius: 999px; margin: 6px 0; }
+.message { max-width: min(78%, 560px); display: flex; flex-direction: column; gap: 3px; margin: 3px 0; }
+.message.received { align-self: flex-start; }
+.message.sent { align-self: flex-end; align-items: flex-end; }
+.source-label { font-size: 11px; color: var(--text-3); padding: 0 4px; display: flex; align-items: center; gap: 4px; }
+.source-label svg { width: 12px; height: 12px; }
+.bubble { padding: 9px 13px; border-radius: 18px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.received .bubble { background: var(--surface); box-shadow: var(--shadow); border-bottom-left-radius: 6px; }
+.sent .bubble { background: var(--primary); color: var(--on-primary); border-bottom-right-radius: 6px; }
+.time { font-size: 10.5px; color: var(--text-3); padding: 0 4px; }
+.file-card {
+    display: flex; align-items: center; gap: 10px; width: 260px; max-width: 100%; padding: 10px; border: 0; border-radius: 16px;
+    background: var(--surface); box-shadow: var(--shadow); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.received .file-card { border-bottom-left-radius: 6px; }
+.sent .file-card { border-bottom-right-radius: 6px; }
+.file-card:hover { background: var(--surface-2); }
+.file-type { width: 38px; height: 44px; border-radius: 8px; display: grid; place-items: center; color: #fff; font-size: 10px; font-weight: 800; flex: none; }
+.file-meta { flex: 1; min-width: 0; }
+.file-name { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-size { font-size: 11px; color: var(--text-2); }
+.file-dl { width: 30px; height: 30px; border-radius: 50%; background: var(--primary-tint); color: var(--primary); display: grid; place-items: center; flex: none; }
+.file-dl svg { width: 16px; height: 16px; }
+
+/* 输入栏 */
+.input-area { flex: none; padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); }
+.input-area .wrap { display: flex; align-items: flex-end; gap: 8px; }
+.input-area textarea {
+    flex: 1; min-height: 44px; max-height: 120px; padding: 11px 16px; border: 1px solid transparent; border-radius: 22px; resize: none; outline: none;
+    background: var(--surface); box-shadow: var(--shadow); color: var(--text); font: inherit; font-size: 14px; line-height: 1.5;
+}
+.input-area textarea::placeholder { color: var(--text-3); }
+.input-area textarea:focus { border-color: var(--primary); }
+.btn-send { width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; cursor: pointer; flex: none; transition: transform .1s, opacity .2s; }
+.btn-send:active { transform: scale(.94); }
+.btn-send:disabled { opacity: .4; cursor: not-allowed; }
+.hint { max-width: 880px; margin: 6px auto 0; padding: 0 20px; font-size: 11px; color: var(--text-3); }
+@media (max-width: 600px) { .hint { display: none; } .nav-link span { display: none; } .nav-link { padding: 0 11px; } }
 </style>
 </head>
 <body>
-<div class="header">
-<div>
-<h1>H4 IM</h1>
-<div class="info" id="serverInfo">连接中...</div>
-</div>
-</div>
-<div id="errorBanner" class="error-banner" style="display:none"></div>
-<div class="chat-container" id="chatContainer">
-<div class="loading">正在连接...</div>
-</div>
-<div class="input-area">
-<textarea id="messageInput" placeholder="输入消息..." rows="1" onkeydown="handleKeyDown(event)"></textarea>
-<button class="btn btn-send" id="sendBtn" onclick="sendMessage()">发送</button>
-</div>
+<header class="topbar">
+    <div class="wrap">
+        <div class="brand">H4</div>
+        <div class="title">
+            <h1>聊天室</h1>
+            <div class="status"><span class="dot" id="statusDot"></span><span id="serverInfo">连接中…</span></div>
+        </div>
+        <a class="nav-link" href="/file.html" title="浏览和管理手机上的文件">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+            <span>文件管理</span>
+        </a>
+    </div>
+</header>
+
+<div class="wrap"><div id="errorBanner" class="banner" role="alert">
+    <svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+    <span id="errorText"></span>
+</div></div>
+
+<main class="chat-container" id="chatScroll">
+    <div class="wrap chat-inner" id="chatContainer">
+        <div class="loading">正在连接…</div>
+    </div>
+</main>
+
+<footer class="input-area">
+    <div class="wrap">
+        <textarea id="messageInput" placeholder="输入消息…" rows="1" onkeydown="handleKeyDown(event)"></textarea>
+        <button class="btn-send" id="sendBtn" onclick="sendMessage()" aria-label="发送" disabled>
+            <svg class="ic" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+        </button>
+    </div>
+    <div class="hint">Enter 发送 · Shift + Enter 换行</div>
+</footer>
 
 <script>
+const TIME_DIVIDER_GAP_MS = 5 * 60 * 1000;
 let ws = null;
 let serverBase = '';
+let lastTimestamp = 0;
+
+const ICON_GLOBE = '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>';
+const ICON_DOWNLOAD = '<svg class="ic" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
 
 function formatTime(ts) {
     return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatDivider(ts) {
+    const d = new Date(ts);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return '今天 ' + formatTime(ts);
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + formatTime(ts);
+}
+
 function formatFileSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+    return (bytes / 1073741824).toFixed(2) + ' GB';
 }
 
-function showError(msg) {
+function fileBadge(name) {
+    const ext = (name.includes('.') ? name.split('.').pop() : '').toLowerCase();
+    const colors = [
+        [/^apk$/, '#16A34A'], [/^pdf$/, '#DC2626'], [/^(jpe?g|png|gif|webp|bmp|heic|svg)$/, '#2563EB'],
+        [/^(mp4|mkv|mov|avi|mp3|flac|wav|m4a)$/, '#7C3AED'], [/^(zip|rar|7z|tar|gz)$/, '#D97706'],
+        [/^(docx?|txt|md)$/, '#0EA5E9'], [/^(xlsx?|csv)$/, '#15803D'],
+    ];
+    const hit = colors.find(([re]) => re.test(ext));
+    return { label: (ext.toUpperCase().slice(0, 4) || 'FILE'), color: hit ? hit[1] : '#0F766E' };
+}
+
+function setStatus(online, text) {
+    document.getElementById('statusDot').classList.toggle('online', online);
+    document.getElementById('serverInfo').textContent = text;
+    document.getElementById('sendBtn').disabled = !online;
+}
+
+function showError(msg, sticky) {
     const banner = document.getElementById('errorBanner');
-    banner.textContent = msg;
-    banner.style.display = 'block';
-    setTimeout(() => { banner.style.display = 'none'; }, 3000);
+    document.getElementById('errorText').textContent = msg;
+    banner.classList.add('show');
+    clearTimeout(showError.timer);
+    if (!sticky) showError.timer = setTimeout(hideError, 3000);
+}
+
+function hideError() {
+    document.getElementById('errorBanner').classList.remove('show');
+}
+
+function clearChat() {
+    document.getElementById('chatContainer').innerHTML = '';
+    lastTimestamp = 0;
+}
+
+function showEmptyIfNeeded() {
+    const container = document.getElementById('chatContainer');
+    if (container.children.length === 0) {
+        container.innerHTML = '<div class="empty">还没有消息<br>和手机上的「聊天」页互通，发一条试试吧</div>';
+    }
 }
 
 // 页面由 HTTP 服务器在可达地址发出；消息走同主机的 WebSocket 端口。
 function connect() {
     serverBase = window.location.origin;
     const wsUrl = 'ws://' + window.location.hostname + ':8081';
-    document.getElementById('serverInfo').textContent = '网页端 · ' + serverBase;
+    setStatus(false, '连接中… ' + serverBase);
 
     try {
         ws = new WebSocket(wsUrl);
@@ -85,9 +218,11 @@ function connect() {
     }
 
     ws.onopen = () => {
-        const loading = document.querySelector('.loading');
-        if (loading) loading.remove();
-        document.getElementById('serverInfo').textContent = '网页端 · 已连接 ' + serverBase;
+        // 服务器会在连接后推送近期历史，先清空避免重连时重复。
+        clearChat();
+        hideError();
+        setStatus(true, '已连接 · ' + serverBase);
+        setTimeout(showEmptyIfNeeded, 600);
     };
 
     // 收到的每条消息（含连接时推送的历史）均为「接收」侧，靠左显示。
@@ -95,7 +230,8 @@ function connect() {
         try {
             const msg = JSON.parse(event.data);
             if (msg.type === 'CLEAR') {
-                document.getElementById('chatContainer').innerHTML = '';
+                clearChat();
+                showEmptyIfNeeded();
                 return;
             }
             appendMessage(msg, false);
@@ -105,43 +241,80 @@ function connect() {
     };
 
     ws.onclose = () => {
-        document.getElementById('serverInfo').textContent = '连接已断开，3s 后重连...';
+        setStatus(false, '连接已断开，3 秒后重连…');
+        showError('与手机的连接已断开，正在自动重连，历史消息保留在页面上', true);
         setTimeout(connect, 3000);
     };
 
     ws.onerror = () => {
-        showError('连接错误');
+        setStatus(false, '连接错误');
     };
 }
 
 function appendMessage(msg, isSent) {
     const container = document.getElementById('chatContainer');
+    const placeholder = container.querySelector('.loading, .empty');
+    if (placeholder) placeholder.remove();
+
+    const ts = msg.timestamp || Date.now();
+    if (!lastTimestamp || ts - lastTimestamp > TIME_DIVIDER_GAP_MS) {
+        const day = document.createElement('div');
+        day.className = 'day';
+        day.textContent = formatDivider(ts);
+        container.appendChild(day);
+    }
+    lastTimestamp = ts;
+
     if (msg.type === 'SYSTEM') {
         const div = document.createElement('div');
         div.className = 'system-msg';
         div.textContent = msg.content;
         container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+        scrollToBottom();
         return;
     }
+
     const div = document.createElement('div');
     div.className = 'message ' + (isSent ? 'sent' : 'received');
-
-    let contentHtml = '<div class="source-label">' + (isSent ? '网页' : '手机') + '</div>';
-    if (msg.type === 'FILE' && msg.fileName) {
-        const fp = msg.fileUrl || (serverBase + '/files/' + encodeURIComponent(msg.fileName));
-        contentHtml += '<div class="file-info" onclick="downloadFile(\'' + fp + '\')">';
-        contentHtml += '<span class="file-name">' + escapeHtml(msg.fileName) + '</span>';
-        if (msg.fileSize) contentHtml += '<span class="file-size">' + formatFileSize(msg.fileSize) + '</span>';
-        contentHtml += '</div>';
-    } else if (msg.content) {
-        contentHtml += escapeHtml(msg.content);
+    if (!isSent) {
+        const label = document.createElement('div');
+        label.className = 'source-label';
+        label.innerHTML = ICON_GLOBE + '<span>其他设备</span>';
+        div.appendChild(label);
     }
 
-    contentHtml += '<div class="time">' + formatTime(msg.timestamp) + '</div>';
-    div.innerHTML = contentHtml;
+    if (msg.type === 'FILE' && msg.fileName) {
+        const fp = msg.fileUrl || (serverBase + '/files/' + encodeURIComponent(msg.fileName));
+        const badge = fileBadge(msg.fileName);
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'file-card';
+        card.title = '下载 ' + msg.fileName;
+        card.innerHTML = '<span class="file-type" style="background:' + badge.color + '">' + escapeHtml(badge.label) + '</span>'
+            + '<span class="file-meta"><span class="file-name">' + escapeHtml(msg.fileName) + '</span>'
+            + '<span class="file-size">' + (msg.fileSize ? formatFileSize(msg.fileSize) : '') + '</span></span>'
+            + '<span class="file-dl">' + ICON_DOWNLOAD + '</span>';
+        card.addEventListener('click', () => downloadFile(fp));
+        div.appendChild(card);
+    } else {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.textContent = msg.content || '';
+        div.appendChild(bubble);
+    }
+
+    const time = document.createElement('div');
+    time.className = 'time';
+    time.textContent = formatTime(ts);
+    div.appendChild(time);
+
     container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    scrollToBottom();
+}
+
+function scrollToBottom() {
+    const scroller = document.getElementById('chatScroll');
+    scroller.scrollTop = scroller.scrollHeight;
 }
 
 function escapeHtml(text) {
@@ -162,7 +335,7 @@ function sendMessage() {
     const text = input.value.trim();
     if (!text) return;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-        showError('未连接');
+        showError('未连接，请稍后再试');
         return;
     }
     const msg = { type: 'TEXT', content: text, timestamp: Date.now() };
@@ -173,7 +346,7 @@ function sendMessage() {
 }
 
 function handleKeyDown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
         sendMessage();
     }
@@ -181,11 +354,10 @@ function handleKeyDown(e) {
 
 document.getElementById('messageInput').addEventListener('input', function() {
     this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 });
 
 connect();
 </script>
 </body>
 </html>
-
