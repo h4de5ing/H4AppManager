@@ -40,6 +40,14 @@ class HttpFileServerService : Service() {
         @Volatile
         private var httpRunning = false
         private var serverThread: Thread? = null
+
+        /** HTTP 服务开始监听的时间（毫秒），未运行时为 0。 */
+        @Volatile
+        var startedAt: Long = 0L
+            private set
+
+        val isRunning: Boolean
+            get() = httpRunning && startedAt > 0L
     }
 
     private var serverSocket: ServerSocket? = null
@@ -152,6 +160,7 @@ class HttpFileServerService : Service() {
                 reuseAddress = true
                 bind(java.net.InetSocketAddress("0.0.0.0", serverPort))
             }
+            startedAt = System.currentTimeMillis()
             Log.i(TAG, "HTTP Server started on port $serverPort")
 
             while (httpRunning) {
@@ -174,6 +183,7 @@ class HttpFileServerService : Service() {
             Log.e(TAG, "Server error", e)
         } finally {
             httpRunning = false
+            startedAt = 0L
             serverThread = null
         }
     }

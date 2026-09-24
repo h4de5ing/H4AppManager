@@ -1,24 +1,110 @@
 <resources>
     <string name="app_name">H4 应用管理</string>
+    <string name="unknown_value">未知</string>
+    <string name="copied">已复制</string>
+
+    <!-- 底部导航 -->
+    <string name="nav_apps">应用</string>
+    <string name="nav_chat">聊天</string>
+    <string name="nav_lan">局域网</string>
+
+    <!-- 应用列表 -->
+    <string name="apps_title">应用</string>
     <string name="app_count_initial">加载中…</string>
-    <string name="show_system_apps">系统</string>
-    <string name="search_hint">搜索应用</string>
+    <string name="app_count">显示 %1$d / 共 %2$d 个</string>
+    <string name="search_hint">搜索应用名或包名</string>
+    <string name="filter_user">用户 %1$d</string>
+    <string name="filter_system">系统 %1$d</string>
+    <string name="filter_all">全部</string>
+    <string name="sort_name">名称</string>
+    <string name="sort_size">大小</string>
+    <string name="sort_updated">最近更新</string>
     <string name="loading_apps">正在加载应用…</string>
     <string name="no_apps">没有可显示的应用</string>
+    <string name="system_tag">系统</string>
+    <string name="server_running">服务运行中</string>
+    <string name="server_stopped">服务未启动</string>
+    <string name="server_local_only">仅本机可访问</string>
+
+    <!-- 应用详情 -->
     <string name="system_app">系统应用</string>
     <string name="user_app">用户应用</string>
-    <string name="unknown_value">未知</string>
-    <string name="app_count">%1$d / %2$d</string>
-    <string name="app_meta">%1$s · %2$s</string>
-    <string name="app_details">包名：%1$s\n类型：%2$s\n版本名：%3$s\n版本号：%4$s\nAPK 大小：%5$s\n安装时间：%6$s\n更新时间：%7$s\nTarget SDK：%8$s\nAPK 路径：%9$s\n签名 MD5：%10$s\n签名 SHA-1：%11$s\n签名 SHA-256：%12$s</string>
-    <string name="export_apk">导出 APK</string>
+    <string name="open_app">打开</string>
     <string name="share_apk">分享 APK</string>
+    <string name="export_apk">导出</string>
+    <string name="app_settings">系统设置</string>
+    <string name="detail_basic">基本信息</string>
+    <string name="detail_signature">签名（点击复制）</string>
+    <string name="detail_version">版本</string>
+    <string name="detail_version_value">%1$s (%2$d)</string>
+    <string name="detail_type">类型</string>
+    <string name="detail_size">APK 大小</string>
+    <string name="detail_target_sdk">Target SDK</string>
+    <string name="detail_install_time">安装时间</string>
+    <string name="detail_update_time">更新时间</string>
+    <string name="detail_apk_path">APK 路径</string>
+    <string name="launch_failed">启动失败</string>
+    <string name="launch_unavailable">该应用无可启动的入口</string>
     <string name="preparing_apk_share">正在准备 APK…</string>
     <string name="share_apk_chooser">分享 APK 到</string>
     <string name="share_apk_failed">分享失败：%1$s</string>
-    <string name="open_app">打开</string>
     <string name="export_success">%1$s 已导出到所选位置</string>
     <string name="export_failed">导出失败：%1$s</string>
     <string name="export_source_missing">未找到 APK 源文件</string>
     <string name="export_target_unavailable">无法写入目标文件</string>
+
+    <!-- 聊天 -->
+    <string name="chat_title">聊天室</string>
+    <string name="chat_connecting">正在连接…</string>
+    <string name="chat_reconnecting">重新连接中…</string>
+    <string name="chat_connected_clients">已连接 · %1$d 个网页端在线</string>
+    <string name="chat_connected_alone">已连接 · 暂无网页端在线</string>
+    <string name="chat_disconnected_banner">与本机服务断开，3 秒后自动重连</string>
+    <string name="chat_retry_now">立即重试</string>
+    <string name="chat_input_hint">输入消息…</string>
+    <string name="chat_empty">还没有消息\n在电脑浏览器打开「局域网」页的地址即可开始聊天</string>
+    <string name="chat_from_web">网页端</string>
+    <string name="chat_today">今天 %1$s</string>
+    <string name="chat_send_failed">发送失败 · 点击重发</string>
+    <string name="chat_not_connected">未连接，稍后重试</string>
+    <string name="chat_copy_address">复制服务地址</string>
+    <string name="chat_more">更多</string>
+    <string name="chat_attach">发送文件</string>
+    <string name="chat_send">发送</string>
+    <string name="chat_open_web">在浏览器中打开网页版</string>
+    <string name="chat_file_sending">正在发送文件…</string>
+    <string name="chat_file_failed">文件发送失败：%1$s</string>
+    <string name="chat_file_missing">文件已不存在</string>
+    <string name="chat_file_no_app">没有可以打开该文件的应用</string>
+
+    <!-- 清空 -->
+    <string name="clear_all">清空聊天与共享文件</string>
+    <string name="clear_all_message">确定要清空所有聊天记录和共享文件吗？此操作不可恢复。</string>
+    <string name="clear_confirm">清空</string>
+    <string name="clear_done">已清理所有记录和文件</string>
+    <string name="clear_failed">清理失败</string>
+
+    <!-- 局域网 -->
+    <string name="lan_title">局域网</string>
+    <string name="lan_subtitle">同一 Wi-Fi 下的电脑用浏览器访问</string>
+    <string name="lan_no_network">未连接 Wi-Fi，仅本机可访问</string>
+    <string name="lan_hint">在电脑浏览器地址栏输入上面的地址即可访问\nWebSocket 端口 %1$d · 已运行 %2$s</string>
+    <string name="lan_hint_stopped">服务启动后会在这里显示访问地址</string>
+    <string name="lan_port_format" translatable="false">:%1$d</string>
+    <string name="lan_copy">复制地址</string>
+    <string name="lan_share">分享</string>
+    <string name="lan_share_text">在浏览器打开 %1$s 访问 H4 应用管理</string>
+    <string name="lan_stat_clients">在线网页端</string>
+    <string name="lan_stat_messages">聊天消息</string>
+    <string name="lan_stat_files">共享文件</string>
+    <string name="lan_web_chat">网页聊天</string>
+    <string name="lan_web_files">网页文件管理</string>
+    <string name="lan_permission">所有文件访问权限</string>
+    <string name="lan_permission_desc">网页文件管理需要此权限</string>
+    <string name="lan_permission_granted">已授权</string>
+    <string name="lan_permission_request">去授权</string>
+    <string name="lan_clear_desc">不可恢复</string>
+    <string name="uptime_just_now">不到 1 分钟</string>
+    <string name="uptime_minutes">%1$d 分钟</string>
+    <string name="uptime_hours">%1$d 小时 %2$d 分钟</string>
 </resources>

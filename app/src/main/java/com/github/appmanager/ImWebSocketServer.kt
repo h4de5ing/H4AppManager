@@ -15,6 +15,11 @@ class ImWebSocketServer(
 
     companion object {
         const val TAG = "ImWebSocketServer"
+
+        /** 当前在线的网页端数量（不含本机 App 自己的回环连接）。 */
+        @Volatile
+        var webClientCount: Int = 0
+            private set
     }
 
     @Volatile
@@ -29,11 +34,20 @@ class ImWebSocketServer(
 
     override fun onOpen(conn: WebSocket, handshake: ClientHandshake) {
         Log.d(TAG, "Client connected: ${conn.remoteSocketAddress}")
+        updateWebClientCount()
         chatService.loadRecentHistory().forEach { line -> conn.send(line) }
     }
 
     override fun onClose(conn: WebSocket, code: Int, reason: String?, remote: Boolean) {
         Log.d(TAG, "Client disconnected: ${conn.remoteSocketAddress} ($code)")
+        updateWebClientCount(closing = conn)
+    }
+
+    private fun updateWebClientCount(closing: WebSocket? = null) {
+        webClientCount = connections.count { other ->
+            other !== closing && other.isOpen &&
+                other.remoteSocketAddress?.address?.isLoopbackAddress == false
+        }
     }
 
     override fun onMessage(conn: WebSocket, message: String) {
@@ -57,7 +71,10 @@ class ImWebSocketServer(
     }
 
     override fun onError(conn: WebSocket?, ex: Exception) {
-        if (conn == null) running = false
+        if (conn == null) {
+            running = false
+            webClientCount = 0
+        }
         Log.e(TAG, "WebSocket error", ex)
     }
 }

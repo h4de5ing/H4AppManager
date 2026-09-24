@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <include layout="@layout/include_msg_day" />
+
+    <LinearLayout
+        android:id="@+id/msg_column"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <include layout="@layout/include_msg_sender" />
+
+        <TextView
+            android:id="@+id/msg_bubble"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:lineSpacingExtra="2dp"
+            android:paddingStart="12dp"
+            android:paddingTop="9dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="9dp"
+            android:textIsSelectable="true"
+            android:textSize="14sp"
+            tools:background="@drawable/bg_bubble_in"
+            tools:text="消息内容" />
+
+        <include layout="@layout/include_msg_time" />
+    </LinearLayout>
+
+</LinearLayout>

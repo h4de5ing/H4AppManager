@@ -1,20 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 背景按位置切换（首行上圆角 / 中间直角 / 末行下圆角），拼成一张分组卡片。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/surface">
+    android:background="@drawable/bg_row_middle">
+
+    <View
+        android:id="@+id/app_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_gravity="top"
+        android:layout_marginStart="66dp"
+        android:layout_marginEnd="12dp"
+        android:background="@color/line" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:minHeight="68dp"
+        android:minHeight="66dp"
         android:orientation="horizontal"
         android:paddingStart="12dp"
-        android:paddingTop="8dp"
+        android:paddingTop="10dp"
         android:paddingEnd="12dp"
-        android:paddingBottom="8dp">
+        android:paddingBottom="10dp">
 
         <ImageView
             android:id="@+id/app_icon"
@@ -26,14 +36,16 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="12dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
+            <!-- 「系统」标签以 drawableEnd 形式挂在名称后，名称过长省略时标签仍可见。 -->
             <TextView
                 android:id="@+id/app_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:drawablePadding="6dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="@color/textPrimary"
@@ -47,19 +59,41 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:ellipsize="end"
+                android:fontFamily="monospace"
                 android:maxLines="1"
                 android:textColor="@color/textSecondary"
                 android:textSize="12sp"
                 tools:text="com.example.app" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:gravity="end"
+            android:orientation="vertical">
 
             <TextView
-                android:id="@+id/app_meta"
+                android:id="@+id/app_size"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFeatureSettings="tnum"
+                android:textColor="@color/textPrimary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                tools:text="16 MB" />
+
+            <TextView
+                android:id="@+id/app_version"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:textColor="@color/textSecondary"
-                android:textSize="12sp"
-                tools:text="1.0.0 · 16 MB" />
+                android:ellipsize="end"
+                android:maxWidth="96dp"
+                android:maxLines="1"
+                android:textColor="@color/textTertiary"
+                android:textSize="11.5sp"
+                tools:text="1.0.0" />
         </LinearLayout>
     </LinearLayout>
 

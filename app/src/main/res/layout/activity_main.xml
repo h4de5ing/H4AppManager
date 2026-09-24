@@ -8,118 +8,109 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/colorPrimary"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="10dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="10dp">
-
-        <TextView
-            android:id="@+id/title_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/app_name"
-            android:textColor="@android:color/white"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/title_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="@string/app_count_initial"
-            android:textColor="#D8F3EF"
-            android:textSize="12sp" />
-
-        <Button
-            android:id="@+id/im_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="IM"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/surface"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingTop="8dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="8dp">
-
-        <EditText
-            android:id="@+id/search_input"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="@string/search_hint"
-            android:imeOptions="actionSearch"
-            android:inputType="text"
-            android:maxLines="1"
-            android:minHeight="0dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp" />
-
-        <Switch
-            android:id="@+id/show_system_apps_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:minHeight="0dp"
-            android:showText="false"
-            android:text="@string/show_system_apps" />
-    </LinearLayout>
-
+    <!-- 三个页面叠放在同一容器中，底部导航切换显示 / 隐藏（不使用 Fragment）。 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/app_list"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingBottom="8dp"
-            tools:listitem="@layout/item_app" />
+        <include
+            android:id="@+id/page_apps"
+            layout="@layout/page_apps" />
 
-        <TextView
-            android:id="@+id/empty_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:text="@string/no_apps"
-            android:textColor="@color/textSecondary"
-            android:textSize="16sp"
+        <include
+            android:id="@+id/page_chat"
+            layout="@layout/page_chat"
             android:visibility="gone" />
 
-        <LinearLayout
-            android:id="@+id/loading_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical">
-
-            <ProgressBar
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="@string/loading_apps"
-                android:textColor="@color/textSecondary" />
-        </LinearLayout>
+        <include
+            android:id="@+id/page_lan"
+            layout="@layout/page_lan"
+            android:visibility="gone" />
     </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/bottom_nav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface"
+        android:orientation="vertical">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/line" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp">
+
+            <LinearLayout
+                android:id="@+id/nav_apps"
+                style="@style/NavItem">
+
+                <ImageView
+                    style="@style/NavIcon"
+                    android:src="@drawable/ic_grid" />
+
+                <TextView
+                    style="@style/NavLabel"
+                    android:text="@string/nav_apps" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/nav_chat"
+                style="@style/NavItem">
+
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content">
+
+                    <ImageView
+                        style="@style/NavIcon"
+                        android:src="@drawable/ic_chat" />
+
+                    <TextView
+                        android:id="@+id/chat_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="16dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="-2dp"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_badge"
+                        android:gravity="center"
+                        android:minWidth="16dp"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        android:textColor="@android:color/white"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+                </FrameLayout>
+
+                <TextView
+                    style="@style/NavLabel"
+                    android:text="@string/nav_chat" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/nav_lan"
+                style="@style/NavItem">
+
+                <ImageView
+                    style="@style/NavIcon"
+                    android:src="@drawable/ic_wifi" />
+
+                <TextView
+                    style="@style/NavLabel"
+                    android:text="@string/nav_lan" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
 
 </LinearLayout>

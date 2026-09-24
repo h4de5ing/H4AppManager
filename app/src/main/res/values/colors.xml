@@ -5,6 +5,20 @@
     <color name="colorAccent">#F59E0B</color>
     <color name="appBackground">#F4F7F5</color>
     <color name="surface">#FFFFFF</color>
+    <color name="surface2">#EEF3F1</color>
+    <color name="line">#E1E8E5</color>
     <color name="textPrimary">#14211D</color>
     <color name="textSecondary">#5F6B67</color>
+    <color name="textTertiary">#8A9591</color>
+    <color name="primaryStrong">#115E59</color>
+    <color name="primarySoft">#CCFBF1</color>
+    <color name="primaryTint">#E7F6F3</color>
+    <color name="onPrimary">#FFFFFF</color>
+    <color name="accentSoft">#FEF3C7</color>
+    <color name="accentText">#B45309</color>
+    <color name="danger">#DC2626</color>
+    <color name="dangerSoft">#FEE2E2</color>
+    <color name="success">#15803D</color>
+    <color name="successSoft">#DCFCE7</color>
+    <color name="online">#22C55E</color>
 </resources>

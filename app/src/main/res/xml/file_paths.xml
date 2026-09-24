@@ -3,4 +3,7 @@
     <cache-path
         name="shared_apks"
         path="shared_apks/" />
+    <files-path
+        name="chat_files"
+        path="chat_files/" />
 </paths>

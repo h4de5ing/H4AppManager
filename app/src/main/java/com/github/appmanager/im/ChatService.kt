@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Base64
 import android.util.Log
 import java.io.File
+import java.io.InputStream
 
 class ChatService(private val context: Context) {
     companion object {
@@ -56,6 +57,35 @@ class ChatService(private val context: Context) {
         val dest = File(filesDir, storedName)
         dest.outputStream().use { it.write(bytes) }
         return storedName
+    }
+
+    /** 把本机选中的文件存入共享目录；先在锁内占好文件名，再在锁外拷贝，避免大文件阻塞消息读写。 */
+    fun storeFile(name: String, input: InputStream): File {
+        val dest = synchronized(this) {
+            File(filesDir, uniqueFileName(cleanFileName(name))).apply { createNewFile() }
+        }
+        try {
+            dest.outputStream().use { input.copyTo(it) }
+        } catch (e: Exception) {
+            dest.delete()
+            throw e
+        }
+        return dest
+    }
+
+    @Synchronized
+    fun messageCount(): Int {
+        return try {
+            if (!historyFile.exists()) 0 else historyFile.useLines { lines -> lines.count { it.isNotBlank() } }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to count messages", e)
+            0
+        }
+    }
+
+    @Synchronized
+    fun sharedFilesSize(): Long {
+        return filesDir.listFiles()?.sumOf { if (it.isFile) it.length() else 0L } ?: 0L
     }
 
     @Synchronized

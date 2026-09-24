@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#2DD4BF</color>
+    <color name="colorPrimaryDark">#0F1513</color>
+    <color name="colorAccent">#FBBF24</color>
+    <color name="appBackground">#0F1513</color>
+    <color name="surface">#18201E</color>
+    <color name="surface2">#212B28</color>
+    <color name="line">#2A3532</color>
+    <color name="textPrimary">#E6EEEB</color>
+    <color name="textSecondary">#A3B0AC</color>
+    <color name="textTertiary">#75827E</color>
+    <color name="primaryStrong">#5EEAD4</color>
+    <color name="primarySoft">#134E4A</color>
+    <color name="primaryTint">#16302C</color>
+    <color name="onPrimary">#04201C</color>
+    <color name="accentSoft">#3A2E10</color>
+    <color name="accentText">#FBBF24</color>
+    <color name="danger">#F87171</color>
+    <color name="dangerSoft">#3B1717</color>
+    <color name="success">#4ADE80</color>
+    <color name="successSoft">#123821</color>
+    <color name="online">#22C55E</color>
+</resources>

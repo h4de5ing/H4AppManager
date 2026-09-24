@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>H4 应用管理 UI 方案</title>
+<style>
+:root {
+  --primary: #0F766E;
+  --primary-strong: #115E59;
+  --primary-soft: #CCFBF1;
+  --primary-tint: #E7F6F3;
+  --accent: #F59E0B;
+  --accent-soft: #FEF3C7;
+  --danger: #DC2626;
+  --danger-soft: #FEE2E2;
+  --bg: #F4F7F5;
+  --surface: #FFFFFF;
+  --surface-2: #EEF3F1;
+  --line: #E1E8E5;
+  --text: #14211D;
+  --text-2: #5F6B67;
+  --text-3: #8A9591;
+  --page: #E6ECE9;
+  --page-text: #14211D;
+  --frame: #1B2320;
+  --scrim: rgba(10, 20, 17, .45);
+  --shadow: 0 1px 2px rgba(16, 40, 34, .06), 0 2px 8px rgba(16, 40, 34, .06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary: #2DD4BF; --primary-strong: #5EEAD4; --primary-soft: #134E4A; --primary-tint: #16302C;
+    --accent: #FBBF24; --accent-soft: #3A2E10; --danger: #F87171; --danger-soft: #3B1717;
+    --bg: #0F1513; --surface: #18201E; --surface-2: #212B28; --line: #2A3532;
+    --text: #E6EEEB; --text-2: #A3B0AC; --text-3: #75827E;
+    --page: #0A0F0D; --page-text: #E6EEEB; --frame: #000; --scrim: rgba(0,0,0,.6);
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --primary: #2DD4BF; --primary-strong: #5EEAD4; --primary-soft: #134E4A; --primary-tint: #16302C;
+  --accent: #FBBF24; --accent-soft: #3A2E10; --danger: #F87171; --danger-soft: #3B1717;
+  --bg: #0F1513; --surface: #18201E; --surface-2: #212B28; --line: #2A3532;
+  --text: #E6EEEB; --text-2: #A3B0AC; --text-3: #75827E;
+  --page: #0A0F0D; --page-text: #E6EEEB; --frame: #000; --scrim: rgba(0,0,0,.6);
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--page); color: var(--page-text);
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", Roboto, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased; line-height: 1.5;
+}
+.wrap { max-width: 1560px; margin: 0 auto; padding: 32px 16px 64px; }
+header.doc { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+header.doc h1 { font-size: 26px; letter-spacing: -.01em; }
+header.doc p { color: var(--text-2); font-size: 14px; max-width: 720px; margin-top: 6px; }
+.theme-toggle { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.theme-toggle button { border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.theme-toggle button.on { background: var(--primary); color: #fff; }
+:root[data-theme="dark"] .theme-toggle button.on { color: #04201C; }
+
+.screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 32px 24px; justify-items: center; }
+.screen-col { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 360px; }
+.screen-col h2 { font-size: 15px; align-self: flex-start; }
+.screen-col h2 span { color: var(--text-3); font-weight: 400; margin-left: 6px; font-size: 13px; }
+.screen-col .note { font-size: 12.5px; color: var(--text-2); align-self: stretch; }
+.screen-col .note li { margin-left: 16px; margin-top: 2px; }
+
+/* ---------- phone ---------- */
+.phone { width: 100%; max-width: 340px; aspect-ratio: 340 / 720; border-radius: 34px; background: var(--frame); padding: 8px; box-shadow: 0 20px 40px -20px rgba(0,0,0,.35); }
+.device { position: relative; width: 100%; height: 100%; border-radius: 27px; overflow: hidden; background: var(--bg); color: var(--text); display: flex; flex-direction: column; font-size: 14px; }
+.statusbar { height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 11.5px; font-weight: 600; color: var(--text); }
+.statusbar .dots { display: flex; gap: 4px; align-items: center; }
+.statusbar .dots i { width: 14px; height: 8px; border-radius: 2px; background: currentColor; opacity: .8; display: block; }
+.statusbar .dots i:first-child { width: 10px; opacity: .6; }
+
+svg.ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+svg.ic.sm { width: 16px; height: 16px; }
+
+/* top bar */
+.topbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 16px 10px; }
+.topbar .title { flex: 1; min-width: 0; }
+.topbar .title b { display: block; font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.topbar .title small { display: block; font-size: 12px; color: var(--text-2); margin-top: -1px; }
+.icon-btn { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; color: var(--text-2); background: transparent; }
+.icon-btn.filled { background: var(--surface); box-shadow: var(--shadow); color: var(--text); }
+
+/* server chip */
+.srv-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; border-radius: 999px; background: var(--primary-tint); color: var(--primary-strong); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 0 3px rgba(34,197,94,.18); flex: none; }
+
+/* search */
+.search { margin: 0 16px; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); color: var(--text-3); }
+.search span { flex: 1; font-size: 14px; }
+.chips { display: flex; gap: 8px; padding: 12px 16px 4px; overflow: hidden; }
+.chip { flex: none; height: 30px; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; font-size: 12.5px; color: var(--text-2); background: var(--surface); border: 1px solid var(--line); }
+.chip.on { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+:root[data-theme="dark"] .chip.on { color: #04201C; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .chip.on { color: #04201C; } }
+.chip em { font-style: normal; opacity: .75; font-weight: 400; }
+.chip.sort { margin-left: auto; background: transparent; border-color: transparent; padding-right: 0; }
+
+.section-label { padding: 12px 20px 6px; font-size: 12px; color: var(--text-3); display: flex; justify-content: space-between; }
+
+/* app list */
+.scroll { flex: 1; overflow: hidden; position: relative; }
+.list { margin: 0 12px; background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 66px; right: 12px; height: 1px; background: var(--line); }
+.appicon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 17px; flex: none; }
+.row .meta { flex: 1; min-width: 0; }
+.row .name { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14.5px; }
+.row .name span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .pkg { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, "SF Mono", Consolas, monospace; letter-spacing: -.01em; }
+.row .side { text-align: right; flex: none; }
+.row .side .size { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.row .side .ver { font-size: 11.5px; color: var(--text-3); }
+.tag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: var(--accent-soft); color: #B45309; flex: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag { color: var(--accent); } }
+:root[data-theme="dark"] .tag { color: var(--accent); }
+.fade-bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: linear-gradient(transparent, var(--bg)); pointer-events: none; }
+
+/* bottom nav */
+.bottomnav { flex: none; display: flex; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 8px 14px; }
+.bottomnav a { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--text-3); text-decoration: none; position: relative; }
+.bottomnav a .pill { width: 56px; height: 30px; border-radius: 999px; display: grid; place-items: center; }
+.bottomnav a.on { color: var(--text); font-weight: 600; }
+.bottomnav a.on .pill { background: var(--primary-soft); color: var(--primary-strong); }
+.badge { position: absolute; top: 0; left: calc(50% + 10px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+
+/* bottom sheet */
+.scrim { position: absolute; inset: 0; background: var(--scrim); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); border-radius: 24px 24px 0 0; padding: 8px 16px 16px; max-height: 88%; display: flex; flex-direction: column; }
+.grabber { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 12px; }
+.sheet-head { display: flex; align-items: center; gap: 12px; }
+.sheet-head .appicon { width: 52px; height: 52px; border-radius: 14px; font-size: 22px; }
+.sheet-head b { font-size: 17px; display: block; }
+.sheet-head small { font-size: 12px; color: var(--text-2); font-family: ui-monospace, Consolas, monospace; }
+.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0 12px; }
+.action { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 8px; border-radius: 14px; background: var(--surface-2); font-size: 12px; color: var(--text); }
+.action.primary { background: var(--primary); color: #fff; }
+:root[data-theme="dark"] .action.primary { color: #04201C; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .action.primary { color: #04201C; } }
+.kv-group { background: var(--surface-2); border-radius: 14px; padding: 4px 12px; margin-bottom: 10px; }
+.kv-title { font-size: 12px; color: var(--text-3); margin: 6px 2px 6px; font-weight: 600; }
+.kv { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; font-size: 12.5px; }
+.kv + .kv { border-top: 1px solid var(--line); }
+.kv span:first-child { color: var(--text-2); flex: none; }
+.kv span:last-child { text-align: right; font-variant-numeric: tabular-nums; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hash { display: flex; align-items: center; gap: 8px; padding: 7px 0; }
+.hash + .hash { border-top: 1px solid var(--line); }
+.hash b { font-size: 10.5px; color: var(--text-2); width: 48px; flex: none; font-weight: 600; }
+.hash code { flex: 1; min-width: 0; font-size: 10.5px; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.hash svg { color: var(--primary); }
+
+/* chat */
+.chat-top { flex: none; display: flex; align-items: center; gap: 10px; padding: 4px 12px 10px 16px; border-bottom: 1px solid var(--line); background: var(--bg); }
+.chat-top .title { flex: 1; }
+.chat-top .title b { font-size: 17px; display: block; }
+.chat-top .title small { font-size: 11.5px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.chat { flex: 1; overflow: hidden; padding: 12px 12px 4px; display: flex; flex-direction: column; gap: 8px; }
+.day { align-self: center; font-size: 11px; color: var(--text-3); padding: 2px 10px; border-radius: 999px; background: var(--surface-2); margin: 4px 0; }
+.msg { max-width: 78%; display: flex; flex-direction: column; gap: 3px; }
+.msg.in { align-self: flex-start; }
+.msg.out { align-self: flex-end; align-items: flex-end; }
+.msg .who { font-size: 10.5px; color: var(--text-3); display: flex; align-items: center; gap: 4px; padding: 0 4px; }
+.bubble { padding: 9px 12px; border-radius: 18px; font-size: 14px; line-height: 1.45; }
+.msg.in .bubble { background: var(--surface); box-shadow: var(--shadow); border-bottom-left-radius: 6px; }
+.msg.out .bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 6px; }
+:root[data-theme="dark"] .msg.out .bubble { color: #04201C; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .msg.out .bubble { color: #04201C; } }
+.msg .time { font-size: 10px; color: var(--text-3); padding: 0 4px; }
+.file-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); width: 230px; }
+.msg.in .file-card { border-bottom-left-radius: 6px; }
+.file-card .ft { width: 38px; height: 44px; border-radius: 8px; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #fff; flex: none; }
+.file-card .fm { flex: 1; min-width: 0; }
+.file-card .fm b { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-card .fm small { font-size: 11px; color: var(--text-2); }
+.file-card .dl { width: 30px; height: 30px; border-radius: 50%; background: var(--primary-tint); color: var(--primary); display: grid; place-items: center; }
+.composer { flex: none; display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px 14px; background: var(--bg); }
+.composer .field { flex: 1; min-height: 42px; display: flex; align-items: center; padding: 0 14px; border-radius: 21px; background: var(--surface); box-shadow: var(--shadow); color: var(--text-3); font-size: 14px; }
+.round { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.round.ghost { background: var(--surface); color: var(--text-2); box-shadow: var(--shadow); }
+.round.send { background: var(--primary); color: #fff; }
+:root[data-theme="dark"] .round.send { color: #04201C; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .round.send { color: #04201C; } }
+.banner { flex: none; display: flex; align-items: center; gap: 8px; margin: 8px 12px 0; padding: 8px 12px; border-radius: 12px; background: var(--accent-soft); color: #92400E; font-size: 12px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .banner { color: var(--accent); } }
+:root[data-theme="dark"] .banner { color: var(--accent); }
+.banner a { margin-left: auto; font-weight: 700; color: inherit; text-decoration: none; }
+
+/* server page */
+.pad { padding: 0 12px; display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); padding: 14px; }
+.hero { display: flex; gap: 14px; align-items: center; }
+.hero .info { flex: 1; min-width: 0; }
+.hero .state { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #15803D; font-weight: 600; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero .state { color: #4ADE80; } }
+:root[data-theme="dark"] .hero .state { color: #4ADE80; }
+.hero .url { font-family: ui-monospace, Consolas, monospace; font-size: 24px; font-weight: 700; letter-spacing: -.02em; margin: 8px 0 2px; color: var(--primary-strong); white-space: nowrap; }
+.hero .url small { font-size: 16px; color: var(--text-2); font-weight: 600; }
+.hero .sub { font-size: 11.5px; color: var(--text-2); }
+.btns { display: flex; gap: 8px; margin-top: 12px; }
+.btn { flex: 1; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 600; background: var(--surface-2); color: var(--text); }
+.btn.primary { background: var(--primary); color: #fff; }
+:root[data-theme="dark"] .btn.primary { color: #04201C; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #04201C; } }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px; }
+.stat b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+.stat small { font-size: 11px; color: var(--text-2); }
+.link-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+.link-row + .link-row { border-top: 1px solid var(--line); }
+.link-row .lic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+.link-row .lt { flex: 1; min-width: 0; }
+.link-row .lt b { display: block; font-size: 14px; }
+.link-row .lt small { font-size: 11.5px; color: var(--text-2); font-family: ui-monospace, Consolas, monospace; }
+.link-row > svg:last-child { color: var(--text-3); }
+.ok { font-size: 11px; font-weight: 700; color: #15803D; background: #DCFCE7; padding: 2px 8px; border-radius: 999px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ok { background: #123821; color: #4ADE80; } }
+:root[data-theme="dark"] .ok { background: #123821; color: #4ADE80; }
+.danger-row b { color: var(--danger); }
+
+/* doc sections */
+section.doc { margin-top: 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.doc-card { background: var(--surface); color: var(--text); border-radius: 16px; padding: 18px 20px; border: 1px solid var(--line); }
+.doc-card h3 { font-size: 15px; margin-bottom: 10px; }
+.doc-card ul { padding-left: 18px; font-size: 13.5px; color: var(--text-2); }
+.doc-card li { margin: 5px 0; }
+.doc-card li b { color: var(--text); font-weight: 600; }
+.doc-card code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; color: var(--text); }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.sw { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.sw i { width: 22px; height: 22px; border-radius: 7px; border: 1px solid var(--line); display: block; }
+
+@media (max-width: 420px) {
+  .wrap { padding-top: 20px; }
+  header.doc h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4A8 8 0 1 1 20 12Z"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/></symbol>
+    <symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="19" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="doc">
+    <div>
+      <h1>H4 应用管理 · UI 改版方案</h1>
+      <p>保留现有青绿色品牌色（#0F766E），改为「底部导航 + 三个主页面」结构：应用、聊天、局域网。所有界面都可以用现有的 View 体系（RecyclerView + shape drawable）实现，不新增任何第三方依赖。可在右侧切换浅色 / 深色预览。</p>
+    </div>
+    <div class="theme-toggle" role="group" aria-label="主题">
+      <button data-t="auto" class="on">跟随系统</button>
+      <button data-t="light">浅色</button>
+      <button data-t="dark">深色</button>
+    </div>
+  </header>
+
+  <div class="screens">
+
+    <!-- ============ 1. 应用列表 ============ -->
+    <div class="screen-col">
+      <h2>① 应用列表 <span>主页</span></h2>
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i></span></div>
+        <div class="topbar">
+          <div class="title"><b>应用</b><small>显示 86 / 共 214 个</small></div>
+          <span class="srv-chip"><span class="dot"></span>服务运行中</span>
+        </div>
+        <div class="search"><svg class="ic sm"><use href="#i-search"/></svg><span>搜索应用名或包名</span></div>
+        <div class="chips">
+          <span class="chip on">用户 <em>86</em></span>
+          <span class="chip">系统 <em>128</em></span>
+          <span class="chip">全部</span>
+          <span class="chip sort"><svg class="ic sm"><use href="#i-sort"/></svg>名称</span>
+        </div>
+        <div class="scroll">
+          <div class="section-label"><span>A – W</span><span>大小</span></div>
+          <div class="list">
+            <div class="row"><div class="appicon" style="background:#2563EB">支</div><div class="meta"><div class="name"><span>支付宝</span></div><div class="pkg">com.eg.android.AlipayGphone</div></div><div class="side"><div class="size">286 MB</div><div class="ver">10.6.20</div></div></div>
+            <div class="row"><div class="appicon" style="background:#0EA5E9">B</div><div class="meta"><div class="name"><span>哔哩哔哩</span></div><div class="pkg">tv.danmaku.bili</div></div><div class="side"><div class="size">154 MB</div><div class="ver">8.12.0</div></div></div>
+            <div class="row"><div class="appicon" style="background:#DC2626">网</div><div class="meta"><div class="name"><span>网易云音乐</span></div><div class="pkg">com.netease.cloudmusic</div></div><div class="side"><div class="size">198 MB</div><div class="ver">9.1.5</div></div></div>
+            <div class="row"><div class="appicon" style="background:#7C3AED">C</div><div class="meta"><div class="name"><span>Chrome</span><span class="tag">系统</span></div><div class="pkg">com.android.chrome</div></div><div class="side"><div class="size">312 MB</div><div class="ver">128.0</div></div></div>
+            <div class="row"><div class="appicon" style="background:#0F766E">H4</div><div class="meta"><div class="name"><span>H4 应用管理</span></div><div class="pkg">com.github.appmanager</div></div><div class="side"><div class="size">6.2 MB</div><div class="ver">1.3.0</div></div></div>
+            <div class="row"><div class="appicon" style="background:#16A34A">微</div><div class="meta"><div class="name"><span>微信</span></div><div class="pkg">com.tencent.mm</div></div><div class="side"><div class="size">412 MB</div><div class="ver">8.0.52</div></div></div>
+            <div class="row"><div class="appicon" style="background:#EA580C">淘</div><div class="meta"><div class="name"><span>淘宝</span></div><div class="pkg">com.taobao.taobao</div></div><div class="side"><div class="size">263 MB</div><div class="ver">10.40.0</div></div></div>
+          </div>
+          <div class="fade-bottom"></div>
+        </div>
+        <nav class="bottomnav">
+          <a class="on"><span class="pill"><svg class="ic"><use href="#i-grid"/></svg></span>应用</a>
+          <a><span class="pill"><svg class="ic"><use href="#i-chat"/></svg></span>聊天<span class="badge">3</span></a>
+          <a><span class="pill"><svg class="ic"><use href="#i-wifi"/></svg></span>局域网</a>
+        </nav>
+      </div></div>
+      <ul class="note">
+        <li>标题栏去掉纯色大色块，改为浅底大标题，状态栏更统一</li>
+        <li>「系统」开关换成 用户 / 系统 / 全部 筛选芯片，并直接显示数量</li>
+        <li>新增排序：名称 / 大小 / 更新时间</li>
+        <li>大小右对齐，列表扫读更快；系统应用加橙色小标签</li>
+      </ul>
+    </div>
+
+    <!-- ============ 2. 应用详情 ============ -->
+    <div class="screen-col">
+      <h2>② 应用详情 <span>底部弹层</span></h2>
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i></span></div>
+        <div class="topbar"><div class="title"><b>应用</b><small>显示 86 / 共 214 个</small></div></div>
+        <div class="search"><svg class="ic sm"><use href="#i-search"/></svg><span>搜索应用名或包名</span></div>
+        <div class="scrim"></div>
+        <div class="sheet">
+          <div class="grabber"></div>
+          <div class="sheet-head">
+            <div class="appicon" style="background:#0EA5E9">B</div>
+            <div><b>哔哩哔哩</b><small>tv.danmaku.bili</small></div>
+          </div>
+          <div class="actions">
+            <div class="action primary"><svg class="ic"><use href="#i-open"/></svg>打开</div>
+            <div class="action"><svg class="ic"><use href="#i-share"/></svg>分享 APK</div>
+            <div class="action"><svg class="ic"><use href="#i-download"/></svg>导出</div>
+            <div class="action"><svg class="ic"><use href="#i-gear"/></svg>系统设置</div>
+          </div>
+          <div class="kv-title">基本信息</div>
+          <div class="kv-group">
+            <div class="kv"><span>版本</span><span>8.12.0 (8120300)</span></div>
+            <div class="kv"><span>类型</span><span>用户应用</span></div>
+            <div class="kv"><span>APK 大小</span><span>154 MB</span></div>
+            <div class="kv"><span>Target SDK</span><span>35</span></div>
+            <div class="kv"><span>安装时间</span><span>2026-03-02 21:14</span></div>
+            <div class="kv"><span>更新时间</span><span>2026-09-18 09:30</span></div>
+          </div>
+          <div class="kv-title">签名（点击复制）</div>
+          <div class="kv-group">
+            <div class="hash"><b>MD5</b><code>7B:4A:13:E2:9F:0C:61:DD:A8:52:3E:90:1B:C4:77:0F</code><svg class="ic sm"><use href="#i-copy"/></svg></div>
+            <div class="hash"><b>SHA-1</b><code>A1:9C:44:03:B8:7E:D2:0F:5A:61:E9:13:C7:88:2B:4D:90:AF:36:18</code><svg class="ic sm"><use href="#i-copy"/></svg></div>
+            <div class="hash"><b>SHA-256</b><code>3F:0A:C9:71:DE:88:24:B6:15:9E:40:7C:A3:D1:6B:52:…</code><svg class="ic sm"><use href="#i-copy"/></svg></div>
+          </div>
+        </div>
+      </div></div>
+      <ul class="note">
+        <li>替代现在的 AlertDialog 大段纯文本，信息分组、键值对齐</li>
+        <li>四个高频操作放在顶部，一步可达（现在分享按钮藏在 setView 里）</li>
+        <li>签名、包名、APK 路径点击即复制，等宽字体便于核对</li>
+        <li>新增「系统设置」→ 跳转应用信息页（卸载 / 强停 / 权限）</li>
+      </ul>
+    </div>
+
+    <!-- ============ 3. 聊天 ============ -->
+    <div class="screen-col">
+      <h2>③ 局域网聊天 <span>原 IM 页</span></h2>
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i></span></div>
+        <div class="chat-top">
+          <div class="title"><b>聊天室</b><small><span class="dot"></span>已连接 · 2 个网页端在线</small></div>
+          <div class="icon-btn" title="复制服务地址"><svg class="ic"><use href="#i-copy"/></svg></div>
+          <div class="icon-btn"><svg class="ic"><use href="#i-more"/></svg></div>
+        </div>
+        <div class="chat">
+          <span class="day">今天 14:02</span>
+          <div class="msg in"><span class="who"><svg class="ic sm"><use href="#i-globe"/></svg>网页端</span><div class="bubble">把刚才那个安装包发我一下</div><span class="time">14:02</span></div>
+          <div class="msg out"><div class="bubble">好，稍等，我从应用列表里直接分享</div><span class="time">14:03</span></div>
+          <div class="msg out">
+            <div class="file-card"><div class="ft" style="background:#16A34A">APK</div><div class="fm"><b>哔哩哔哩-8.12.0.apk</b><small>154 MB · 已上传</small></div><div class="dl"><svg class="ic sm"><use href="#i-download"/></svg></div></div>
+            <span class="time">14:03</span>
+          </div>
+          <div class="msg in"><span class="who"><svg class="ic sm"><use href="#i-globe"/></svg>网页端</span>
+            <div class="file-card"><div class="ft" style="background:#DC2626">PDF</div><div class="fm"><b>会议纪要-0924.pdf</b><small>2.4 MB</small></div><div class="dl"><svg class="ic sm"><use href="#i-download"/></svg></div></div>
+            <span class="time">14:05</span>
+          </div>
+          <div class="msg in"><span class="who"><svg class="ic sm"><use href="#i-globe"/></svg>网页端</span><div class="bubble">收到了，谢谢 👍</div><span class="time">14:06</span></div>
+        </div>
+        <div class="composer">
+          <div class="round ghost"><svg class="ic"><use href="#i-plus"/></svg></div>
+          <div class="field">输入消息…</div>
+          <div class="round send"><svg class="ic"><use href="#i-send"/></svg></div>
+        </div>
+        <nav class="bottomnav">
+          <a><span class="pill"><svg class="ic"><use href="#i-grid"/></svg></span>应用</a>
+          <a class="on"><span class="pill"><svg class="ic"><use href="#i-chat"/></svg></span>聊天</a>
+          <a><span class="pill"><svg class="ic"><use href="#i-wifi"/></svg></span>局域网</a>
+        </nav>
+      </div></div>
+      <ul class="note">
+        <li>圆角气泡替代现在的直角色块，发送方 / 接收方一眼可分</li>
+        <li>文件消息做成卡片（类型色块 + 名称 + 大小 + 下载），不再是「文件: xxx」文本</li>
+        <li>连接状态移到标题下方小字，不再整屏遮挡；断线时显示顶部提示条</li>
+        <li>「清空记录」收进右上角菜单，避免误触红色按钮</li>
+        <li>输入栏左侧 + 号：手机端也能发文件（相册 / 文件 / APK）</li>
+      </ul>
+    </div>
+
+    <!-- ============ 4. 聊天 · 断线状态 ============ -->
+    <div class="screen-col">
+      <h2>④ 聊天 · 断线状态 <span>非阻塞</span></h2>
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i></span></div>
+        <div class="chat-top">
+          <div class="title"><b>聊天室</b><small><span class="dot" style="background:var(--accent);box-shadow:0 0 0 3px rgba(245,158,11,.2)"></span>重新连接中…</small></div>
+          <div class="icon-btn" title="复制服务地址"><svg class="ic"><use href="#i-copy"/></svg></div>
+          <div class="icon-btn"><svg class="ic"><use href="#i-more"/></svg></div>
+        </div>
+        <div class="banner"><svg class="ic sm"><use href="#i-alert"/></svg>与本机服务断开，3 秒后自动重连<a>立即重试</a></div>
+        <div class="chat">
+          <span class="day">今天 14:02</span>
+          <div class="msg in"><span class="who"><svg class="ic sm"><use href="#i-globe"/></svg>网页端</span><div class="bubble">把刚才那个安装包发我一下</div><span class="time">14:02</span></div>
+          <div class="msg out"><div class="bubble">好，稍等，我从应用列表里直接分享</div><span class="time">14:03</span></div>
+          <div class="msg out" style="opacity:.55"><div class="bubble">这条还没发出去</div><span class="time">发送失败 · 点击重发</span></div>
+        </div>
+        <div class="composer">
+          <div class="round ghost"><svg class="ic"><use href="#i-plus"/></svg></div>
+          <div class="field">输入消息…</div>
+          <div class="round send" style="opacity:.4"><svg class="ic"><use href="#i-send"/></svg></div>
+        </div>
+        <nav class="bottomnav">
+          <a><span class="pill"><svg class="ic"><use href="#i-grid"/></svg></span>应用</a>
+          <a class="on"><span class="pill"><svg class="ic"><use href="#i-chat"/></svg></span>聊天</a>
+          <a><span class="pill"><svg class="ic"><use href="#i-wifi"/></svg></span>局域网</a>
+        </nav>
+      </div></div>
+      <ul class="note">
+        <li>现在断线时整个消息区被 loading 覆盖；改为保留历史，只在顶部提示</li>
+        <li>发送按钮置灰；未发出的消息标记「点击重发」</li>
+      </ul>
+    </div>
+
+    <!-- ============ 5. 局域网 ============ -->
+    <div class="screen-col">
+      <h2>⑤ 局域网服务 <span>新页面</span></h2>
+      <div class="phone"><div class="device">
+        <div class="statusbar"><span>9:41</span><span class="dots"><i></i><i></i></span></div>
+        <div class="topbar"><div class="title"><b>局域网</b><small>同一 Wi-Fi 下的电脑用浏览器访问</small></div></div>
+        <div class="scroll"><div class="pad">
+          <div class="card">
+            <div class="hero">
+              <div class="info">
+                <div class="state"><span class="dot"></span>服务运行中</div>
+                <div class="url">192.168.1.23<small>:8080</small></div>
+                <div class="sub">在电脑浏览器地址栏输入上面的地址即可访问<br>Wi-Fi：Home-5G · WebSocket 端口 8081 · 已运行 2 小时</div>
+              </div>
+            </div>
+            <div class="btns">
+              <div class="btn primary"><svg class="ic sm"><use href="#i-copy"/></svg>复制地址</div>
+              <div class="btn"><svg class="ic sm"><use href="#i-share"/></svg>分享</div>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="stat"><b>2</b><small>在线网页端</small></div>
+            <div class="stat"><b>48</b><small>聊天消息</small></div>
+            <div class="stat"><b>1.2G</b><small>共享文件</small></div>
+          </div>
+          <div class="card" style="padding:4px 14px">
+            <div class="link-row"><div class="lic" style="background:var(--primary-tint);color:var(--primary)"><svg class="ic"><use href="#i-chat"/></svg></div><div class="lt"><b>网页聊天</b><small>/index.html</small></div><svg class="ic sm"><use href="#i-chev"/></svg></div>
+            <div class="link-row"><div class="lic" style="background:var(--accent-soft);color:var(--accent)"><svg class="ic"><use href="#i-folder"/></svg></div><div class="lt"><b>网页文件管理</b><small>/file.html</small></div><svg class="ic sm"><use href="#i-chev"/></svg></div>
+            <div class="link-row"><div class="lic" style="background:var(--surface-2);color:var(--text-2)"><svg class="ic"><use href="#i-shield"/></svg></div><div class="lt"><b>所有文件访问权限</b><small style="font-family:inherit">文件管理需要此权限</small></div><span class="ok">已授权</span></div>
+            <div class="link-row danger-row"><div class="lic" style="background:var(--danger-soft);color:var(--danger)"><svg class="ic"><use href="#i-trash"/></svg></div><div class="lt"><b>清空聊天与共享文件</b><small style="font-family:inherit">不可恢复</small></div><svg class="ic sm"><use href="#i-chev"/></svg></div>
+          </div>
+        </div></div>
+        <nav class="bottomnav">
+          <a><span class="pill"><svg class="ic"><use href="#i-grid"/></svg></span>应用</a>
+          <a><span class="pill"><svg class="ic"><use href="#i-chat"/></svg></span>聊天</a>
+          <a class="on"><span class="pill"><svg class="ic"><use href="#i-wifi"/></svg></span>局域网</a>
+        </nav>
+      </div></div>
+      <ul class="note">
+        <li>服务地址目前只在 IM 页标题栏用 11sp 小字显示，这里用大号字集中展示，手动输入即可访问，并支持一键复制 / 分享</li>
+        <li>权限状态可见：未授权时显示「去授权」，而不是启动就强制跳设置页</li>
+        <li>清空操作挪到这里，配合二次确认</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <section class="doc">
+    <div class="doc-card">
+      <h3>现状主要问题</h3>
+      <ul>
+        <li><b>标题栏拥挤</b>：标题、计数、原生灰色「IM」按钮挤在一行，按钮风格与主题不符</li>
+        <li><b>详情弹窗</b>：12 行信息拼成一段纯文本，签名很长难以阅读，也无法单独复制</li>
+        <li><b>IM 页</b>：消息是直角色块，文件消息只有文字；加载 / 断线时整屏遮挡历史</li>
+        <li><b>入口分散</b>：服务地址、文件管理网页、权限状态没有统一位置</li>
+        <li><b>系统开关</b>：Switch 文案「系统」含义不明确，也看不到各类数量</li>
+      </ul>
+    </div>
+    <div class="doc-card">
+      <h3>实现建议（确认后再改代码）</h3>
+      <ul>
+        <li>MainActivity 改为宿主 + 3 个页面，用 <code>FrameLayout</code> 切换 View 显示 / 隐藏（不引入 Fragment），底部导航用自定义 LinearLayout 实现</li>
+        <li>WebImActivity 内容迁到「聊天」页，消息区改用 <code>RecyclerView</code> + 两种 ViewType（文字 / 文件）</li>
+        <li>底部弹层用系统 <code>Dialog</code> + <code>Gravity.BOTTOM</code> + 上滑动画实现；筛选芯片用 <code>TextView</code> + selector 背景，不引入 Material 库</li>
+        <li>圆角、描边统一放到 <code>res/drawable</code> 的 shape 中；新增 <code>values-night/colors.xml</code> 支持深色模式</li>
+        <li>图标全部写成 <code>res/drawable</code> 的 VectorDrawable；复制用系统 <code>ClipboardManager</code>，分享地址用 <code>Intent.ACTION_SEND</code></li>
+        <li><b>不新增任何第三方依赖</b>：只用现有的 androidx core / activity / recyclerview</li>
+      </ul>
+    </div>
+    <div class="doc-card">
+      <h3>设计规范</h3>
+      <ul>
+        <li>圆角：卡片 18dp、按钮 12dp、芯片 / 输入框全圆角</li>
+        <li>间距：页面左右 12–16dp，列表行高 ≥ 64dp</li>
+        <li>字号：大标题 20sp、列表名 15sp、辅助 12sp、包名等宽 12sp</li>
+      </ul>
+      <div class="swatches" style="margin-top:10px">
+        <span class="sw"><i style="background:#0F766E"></i>主色</span>
+        <span class="sw"><i style="background:#CCFBF1"></i>主色浅</span>
+        <span class="sw"><i style="background:#F59E0B"></i>强调</span>
+        <span class="sw"><i style="background:#DC2626"></i>危险</span>
+        <span class="sw"><i style="background:#F4F7F5"></i>背景</span>
+        <span class="sw"><i style="background:#14211D"></i>正文</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var btns = document.querySelectorAll('.theme-toggle button');
+  function apply(t) {
+    if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+    btns.forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); });
+    try { localStorage.setItem('h4-theme', t); } catch (e) {}
+  }
+  btns.forEach(function (b) { b.addEventListener('click', function () { apply(b.dataset.t); }); });
+  var saved = 'auto';
+  try { saved = localStorage.getItem('h4-theme') || 'auto'; } catch (e) {}
+  apply(saved);
+})();
+</script>
+</body>
+</html>

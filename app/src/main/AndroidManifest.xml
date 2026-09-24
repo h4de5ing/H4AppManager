@@ -31,11 +31,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".WebImActivity"
-            android:exported="false"
-            android:label="IM Web"
-            android:theme="@style/AppTheme" />
         <service
             android:name=".HttpFileServerService"
             android:enabled="true"
