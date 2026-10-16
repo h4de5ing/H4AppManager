@@ -120,6 +120,59 @@ button.name-text:hover { color: var(--primary); text-decoration: underline; }
 .context-menu svg { color: var(--text-2); }
 .context-menu .danger, .context-menu .danger svg { color: var(--danger); }
 
+/* 文件详情抽屉 */
+tr.row.file-row { cursor: pointer; }
+tr.row.selected { background: var(--primary-tint); }
+.drawer-mask { position: fixed; inset: 0; z-index: 30; background: rgba(8, 20, 17, .32); opacity: 0; pointer-events: none; transition: opacity .2s; }
+.drawer-mask.open { opacity: 1; pointer-events: auto; }
+.drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 31; width: min(440px, 100vw); display: flex; flex-direction: column;
+    background: var(--bg); box-shadow: var(--shadow-pop); transform: translateX(100%); transition: transform .22s ease; visibility: hidden;
+}
+.drawer.open { transform: none; visibility: visible; }
+.drawer-head { flex: none; display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.drawer-head .type-icon { width: 44px; height: 44px; border-radius: 12px; font-size: 11px; }
+.drawer-title { flex: 1; min-width: 0; }
+.drawer-title .name { display: block; font-size: 15px; font-weight: 700; word-break: break-all; }
+.drawer-title .sub { display: block; font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.drawer-close { width: 34px; height: 34px; border: 0; border-radius: 10px; background: var(--surface-2); color: var(--text-2); cursor: pointer; display: grid; place-items: center; flex: none; }
+.drawer-close:hover { color: var(--text); }
+.drawer-body { flex: 1; overflow-y: auto; padding: 14px 16px 24px; }
+.drawer-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+.drawer-actions .btn { flex: 1; justify-content: center; text-decoration: none; width: auto; padding: 0 14px; }
+.drawer-actions .btn .label { display: inline; }
+.section-title { font-size: 12px; font-weight: 600; color: var(--text-3); margin: 4px 4px 8px; display: flex; align-items: center; gap: 8px; }
+.section-title .hint { margin-left: auto; font-weight: 400; }
+.prop-card { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+.prop { display: flex; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; align-items: flex-start; }
+.prop:last-child { border-bottom: 0; }
+.prop .k { flex: none; width: 72px; color: var(--text-3); }
+.prop .v { flex: 1; min-width: 0; color: var(--text); word-break: break-all; }
+.prop .v.mono, .hash-value { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+.hash-row { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.hash-row:last-child { border-bottom: 0; }
+.hash-row.match { background: var(--primary-tint); }
+.hash-head { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+.hash-value { color: var(--text); word-break: break-all; line-height: 1.5; user-select: all; }
+.hash-value.pending { color: var(--text-3); font-family: inherit; user-select: none; }
+.copy-btn { margin-left: auto; height: 26px; padding: 0 9px; border: 0; border-radius: 8px; background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.copy-btn svg { width: 14px; height: 14px; }
+.copy-btn:hover { color: var(--primary); }
+.copy-btn:disabled { opacity: .4; cursor: default; }
+.compare-wrap { padding: 12px 14px; }
+.compare-input {
+    width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; outline: none;
+    background: var(--bg); color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px;
+}
+.compare-input:focus { border-color: var(--primary); }
+.compare-result { font-size: 12.5px; margin-top: 8px; min-height: 18px; color: var(--text-3); }
+.compare-result.ok { color: var(--primary); font-weight: 600; }
+.compare-result.bad { color: var(--danger); font-weight: 600; }
+.prop-card .hash-start { width: calc(100% - 28px); margin: 12px 14px 2px; justify-content: center; }
+.prop-card .hash-start .label { display: inline; }
+.spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--primary); animation: spin .8s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .empty, .loading { text-align: center; color: var(--text-3); padding: 56px 20px; font-size: 14px; line-height: 1.8; }
 .empty .perm-title { color: var(--text); font-weight: 600; font-size: 15px; margin-bottom: 6px; }
 .hidden-input { display: none; }
@@ -176,6 +229,20 @@ button.name-text:hover { color: var(--primary); text-decoration: underline; }
     </div>
 </div>
 <div class="context-menu" id="contextMenu" role="menu"></div>
+<div class="drawer-mask" id="drawerMask"></div>
+<aside class="drawer" id="detailDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerName">
+    <div class="drawer-head">
+        <span id="drawerIcon"></span>
+        <div class="drawer-title">
+            <span class="name" id="drawerName"></span>
+            <span class="sub" id="drawerSub"></span>
+        </div>
+        <button class="drawer-close" type="button" onclick="closeDetails()" aria-label="关闭详情">
+            <svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+</aside>
 
 <script>
 let serverBase = '';
@@ -191,7 +258,14 @@ const ICONS = {
     download: svg('<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>'),
     rename: svg('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/>'),
     trash: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>'),
+    info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
+    copy: svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>'),
+    hash: svg('<path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16"/>'),
 };
+
+// 超过该大小的文件不自动计算校验值，避免误点就把手机读满几分钟
+const AUTO_HASH_LIMIT = 512 * 1024 * 1024;
+const HASH_FIELDS = [['md5', 'MD5'], ['sha1', 'SHA-1'], ['sha256', 'SHA-256'], ['crc32', 'CRC32']];
 
 function setBanner(id, msg) {
     const b = document.getElementById(id);
@@ -355,13 +429,14 @@ function renderList(entries, query) {
         let nameElement;
         if (e.isDir) {
             nameElement = '<button class="name-text dir" data-action="open-dir" data-name="' + encodedName + '">' + escapeHtml(e.name) + '</button>';
-        } else if (isPreviewable(e.name)) {
-            nameElement = '<button class="name-text" data-action="preview" data-name="' + encodedName + '" title="点击预览">' + escapeHtml(e.name) + '</button>';
         } else {
             nameElement = '<span class="name-text">' + escapeHtml(e.name) + '</span>';
         }
         const subMeta = (e.isDir ? '' : sizeText + ' · ') + formatTime(e.modified);
-        html += '<tr class="row"><td class="col-name"><div class="name">' + typeIcon(e)
+        const rowAttrs = e.isDir
+            ? ' class="row"'
+            : ' class="row file-row" data-action="details" data-name="' + encodedName + '" title="查看详情与校验值"';
+        html += '<tr' + rowAttrs + '><td class="col-name"><div class="name">' + typeIcon(e)
             + '<div class="name-body">' + nameElement + '<div class="sub-meta">' + escapeHtml(subMeta) + '</div></div></div></td>'
             + '<td class="col-size">' + sizeText + '</td><td class="col-modified">' + formatTime(e.modified) + '</td>'
             + '<td class="actions"><button class="more-btn" data-action="menu" data-name="' + encodedName + '" data-dir="' + (e.isDir ? '1' : '0')
@@ -389,6 +464,7 @@ function showMenu(button, name, isDir) {
     if (!isDir) {
         html += '<a data-menu-action="download" href="' + fileUrl(name, true) + '" download>' + ICONS.download + '下载</a>';
     }
+    html += '<button type="button" data-menu-action="details">' + ICONS.info + (isDir ? '属性' : '详情与校验值') + '</button>';
     html += '<button type="button" data-menu-action="rename">' + ICONS.rename + '重命名</button>'
         + '<button type="button" class="danger" data-menu-action="delete">' + ICONS.trash + '删除</button>';
     menu.innerHTML = html;
@@ -429,7 +505,7 @@ document.getElementById('listArea').addEventListener('click', event => {
     if (!target) return;
     const name = decodeURIComponent(target.dataset.name);
     if (target.dataset.action === 'open-dir') enterDir(name);
-    if (target.dataset.action === 'preview') openPreview(name);
+    if (target.dataset.action === 'details') openDetails(name, false);
     if (target.dataset.action === 'menu') {
         event.stopPropagation();
         if (activeMenuButton === target) closeMenu();
@@ -444,6 +520,7 @@ document.getElementById('contextMenu').addEventListener('click', event => {
     const isDir = event.currentTarget.dataset.dir === '1';
     const action = target.dataset.menuAction;
     if (action === 'preview') openPreview(name);
+    if (action === 'details') openDetails(name, isDir);
     if (action === 'rename') renameEntry(name);
     if (action === 'delete') deleteEntry(name, isDir);
     closeMenu();
@@ -453,8 +530,201 @@ document.addEventListener('click', closeMenu);
 window.addEventListener('resize', closeMenu);
 document.querySelector('.list-container').addEventListener('scroll', closeMenu, { passive: true });
 document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') closeMenu();
+    if (event.key !== 'Escape') return;
+    if (document.getElementById('contextMenu').classList.contains('open')) closeMenu();
+    else closeDetails();
 });
+document.getElementById('drawerMask').addEventListener('click', closeDetails);
+
+// ---------- 详情抽屉 ----------
+
+let detailToken = 0;      // 每次打开递增，丢弃过期的 info/hash 响应
+let detailHashes = null;  // 当前文件已算出的校验值，供比对
+
+function openDetails(name, isDir) {
+    closeMenu();
+    const token = ++detailToken;
+    detailHashes = null;
+    const path = joinPath(cwd, name);
+    document.querySelectorAll('tr.row.selected').forEach(r => r.classList.remove('selected'));
+    const encodedName = encodeURIComponent(name).replace(/'/g, '%27');
+    document.querySelectorAll('tr.file-row').forEach(r => {
+        if (r.dataset.name === encodedName) r.classList.add('selected');
+    });
+
+    document.getElementById('drawerIcon').innerHTML = typeIcon({ name: name, isDir: isDir });
+    document.getElementById('drawerName').textContent = name;
+    document.getElementById('drawerSub').textContent = '/sdcard/' + path;
+    document.getElementById('drawerBody').innerHTML = '<div class="loading">正在读取属性…</div>';
+    document.getElementById('drawerMask').classList.add('open');
+    document.getElementById('detailDrawer').classList.add('open');
+
+    fetch(serverBase + '/api/files/info?path=' + encodeURIComponent(path))
+        .then(res => res.json())
+        .then(data => {
+            if (token !== detailToken) return;
+            if (!data.success || !data.info) {
+                const reason = data.code === 'PERMISSION_DENIED' ? '没有文件访问权限' : '文件不存在或已被移动';
+                document.getElementById('drawerBody').innerHTML = '<div class="empty">' + reason + '</div>';
+                return;
+            }
+            renderDetails(data.info, token);
+        })
+        .catch(e => {
+            if (token !== detailToken) return;
+            document.getElementById('drawerBody').innerHTML = '<div class="empty">读取失败：' + escapeHtml(e.message) + '</div>';
+        });
+}
+
+function closeDetails() {
+    detailToken++;
+    document.getElementById('drawerMask').classList.remove('open');
+    document.getElementById('detailDrawer').classList.remove('open');
+    document.querySelectorAll('tr.row.selected').forEach(r => r.classList.remove('selected'));
+}
+
+function prop(key, value, mono) {
+    return '<div class="prop"><span class="k">' + key + '</span><span class="v' + (mono ? ' mono' : '') + '">'
+        + escapeHtml(String(value)) + '</span></div>';
+}
+
+function renderDetails(info, token) {
+    const name = info.name;
+    document.getElementById('drawerSub').textContent = info.absolutePath;
+    let html = '';
+    if (!info.isDir) {
+        html += '<div class="drawer-actions">';
+        if (isPreviewable(name)) {
+            html += '<button class="btn" type="button" id="drawerPreview">' + ICONS.preview + '<span class="label">预览</span></button>';
+        }
+        html += '<a class="btn btn-upload" href="' + fileUrl(name, true) + '" download>' + ICONS.download + '<span class="label">下载</span></a>';
+        html += '</div>';
+    }
+
+    html += '<div class="section-title">基本信息</div><div class="prop-card">';
+    html += prop('名称', name);
+    html += prop('类型', info.isDir ? '文件夹' : (info.mimeType || '未知'));
+    if (info.isDir) {
+        html += prop('包含', (info.childCount || 0) + ' 项');
+    } else {
+        html += prop('大小', formatSize(info.size) + '（' + info.size.toLocaleString('zh-CN') + ' 字节）');
+    }
+    html += prop('修改时间', formatTime(info.modified));
+    html += prop('权限', (info.readable ? '可读' : '不可读') + ' · ' + (info.writable ? '可写' : '只读') + (info.hidden ? ' · 隐藏' : ''));
+    html += prop('位置', info.absolutePath, true);
+    html += '</div>';
+
+    if (!info.isDir) {
+        html += '<div class="section-title">' + ICONS.hash + '校验值<span class="hint" id="hashHint"></span></div>';
+        html += '<div class="prop-card" id="hashCard">';
+        HASH_FIELDS.forEach(([key, label]) => {
+            html += '<div class="hash-row" id="hashRow-' + key + '"><div class="hash-head">' + label
+                + '<button class="copy-btn" type="button" data-copy="' + key + '" disabled>' + ICONS.copy + '复制</button></div>'
+                + '<div class="hash-value pending" id="hash-' + key + '">—</div></div>';
+        });
+        html += '<div class="compare-wrap">'
+            + '<input class="compare-input" id="compareInput" placeholder="粘贴 MD5 / SHA-1 / SHA-256 / CRC32 进行比对" autocomplete="off" spellcheck="false">'
+            + '<div class="compare-result" id="compareResult"></div></div>';
+        html += '</div>';
+    }
+    document.getElementById('drawerBody').innerHTML = html;
+
+    if (info.isDir) return;
+    const previewBtn = document.getElementById('drawerPreview');
+    if (previewBtn) previewBtn.addEventListener('click', () => openPreview(name));
+    document.getElementById('compareInput').addEventListener('input', updateCompare);
+    document.getElementById('hashCard').addEventListener('click', event => {
+        const btn = event.target.closest('[data-copy]');
+        if (btn && detailHashes) copyText(detailHashes[btn.dataset.copy], btn);
+    });
+    if (info.size <= AUTO_HASH_LIMIT) {
+        computeHashes(info.path, token);
+    } else {
+        document.getElementById('hashHint').innerHTML = '';
+        const card = document.getElementById('hashCard');
+        const startBtn = document.createElement('button');
+        startBtn.className = 'btn hash-start';
+        startBtn.type = 'button';
+        startBtn.innerHTML = ICONS.hash + '<span class="label">文件较大（' + formatSize(info.size) + '），点击计算校验值</span>';
+        startBtn.onclick = () => { startBtn.remove(); computeHashes(info.path, token); };
+        card.insertBefore(startBtn, card.firstChild);
+    }
+}
+
+async function computeHashes(path, token) {
+    const hint = document.getElementById('hashHint');
+    hint.innerHTML = '<span class="spinner"></span> 计算中…';
+    HASH_FIELDS.forEach(([key]) => { document.getElementById('hash-' + key).textContent = '计算中…'; });
+    try {
+        const res = await fetch(serverBase + '/api/files/hash?path=' + encodeURIComponent(path));
+        const data = await res.json();
+        if (token !== detailToken) return;
+        if (!data.success) throw new Error(data.message || data.code || res.status);
+        detailHashes = data;
+        HASH_FIELDS.forEach(([key]) => {
+            const el = document.getElementById('hash-' + key);
+            el.textContent = data[key];
+            el.classList.remove('pending');
+        });
+        document.querySelectorAll('#hashCard [data-copy]').forEach(b => { b.disabled = false; });
+        hint.textContent = '耗时 ' + (data.elapsedMs / 1000).toFixed(2) + ' 秒';
+        updateCompare();
+    } catch (e) {
+        if (token !== detailToken) return;
+        hint.textContent = '';
+        HASH_FIELDS.forEach(([key]) => { document.getElementById('hash-' + key).textContent = '计算失败：' + e.message; });
+    }
+}
+
+function updateCompare() {
+    const input = document.getElementById('compareInput');
+    const result = document.getElementById('compareResult');
+    if (!input || !result) return;
+    // 兼容带空格、冒号分隔或大写的写法
+    const value = input.value.trim().toLowerCase().replace(/[\s:-]/g, '');
+    HASH_FIELDS.forEach(([key]) => document.getElementById('hashRow-' + key).classList.remove('match'));
+    result.className = 'compare-result';
+    if (!value) { result.textContent = ''; return; }
+    if (!detailHashes) { result.textContent = '等待校验值计算完成…'; return; }
+    const hit = HASH_FIELDS.find(([key]) => detailHashes[key] === value);
+    if (hit) {
+        document.getElementById('hashRow-' + hit[0]).classList.add('match');
+        result.className = 'compare-result ok';
+        result.textContent = '✓ 与 ' + hit[1] + ' 一致，文件相同';
+    } else {
+        const byLength = { 8: 'CRC32', 32: 'MD5', 40: 'SHA-1', 64: 'SHA-256' }[value.length];
+        result.className = 'compare-result bad';
+        result.textContent = byLength ? '✗ 与 ' + byLength + ' 不一致，文件不同' : '✗ 未匹配任何校验值（长度 ' + value.length + '）';
+    }
+}
+
+// 局域网 http 不是安全上下文，navigator.clipboard 不可用时退回 execCommand
+function copyText(text, btn) {
+    const done = () => {
+        const old = btn.innerHTML;
+        btn.innerHTML = '已复制';
+        setTimeout(() => { btn.innerHTML = old; }, 1200);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text) && done());
+    } else if (fallbackCopy(text)) {
+        done();
+    }
+}
+
+function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+    return ok;
+}
 
 function showPermissionPrompt() {
     const area = document.getElementById('listArea');

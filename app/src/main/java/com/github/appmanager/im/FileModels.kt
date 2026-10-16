@@ -56,3 +56,41 @@ data class FileMkdirRequest(
     val dir: String = "",
     val name: String
 )
+
+/** 文件/目录属性。childCount 仅目录有效；mimeType 由 HTTP 层按扩展名推断后填入。 */
+@Serializable
+data class FileInfo(
+    val name: String,
+    val path: String,
+    val absolutePath: String,
+    val isDir: Boolean,
+    val size: Long,
+    val modified: Long,
+    val readable: Boolean,
+    val writable: Boolean,
+    val hidden: Boolean,
+    val childCount: Int? = null,
+    val mimeType: String? = null
+)
+
+@Serializable
+data class FileInfoResponse(
+    val success: Boolean,
+    val info: FileInfo? = null,
+    val code: String? = null,
+    val message: String? = null
+)
+
+/** 文件摘要（小写十六进制），用于比对文件一致性。 */
+@Serializable
+data class FileHashResponse(
+    val success: Boolean,
+    val size: Long = 0,
+    val md5: String? = null,
+    val sha1: String? = null,
+    val sha256: String? = null,
+    val crc32: String? = null,
+    val elapsedMs: Long = 0,
+    val code: String? = null,
+    val message: String? = null
+)

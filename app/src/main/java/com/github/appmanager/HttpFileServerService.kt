@@ -16,6 +16,8 @@ import androidx.core.app.NotificationCompat
 import com.github.appmanager.im.ChatSerializer
 import com.github.appmanager.im.ChatService
 import com.github.appmanager.im.FileDeleteRequest
+import com.github.appmanager.im.FileHashResponse
+import com.github.appmanager.im.FileInfoResponse
 import com.github.appmanager.im.FileMkdirRequest
 import com.github.appmanager.im.FileOpResponse
 import com.github.appmanager.im.FileRenameRequest
@@ -236,6 +238,8 @@ class HttpFileServerService : Service() {
                     socket, queryString, request
                 )
 
+                path == "/api/files/info" && method == "GET" -> handleFileInfo(socket, queryString)
+                path == "/api/files/hash" && method == "GET" -> handleFileHash(socket, queryString)
                 path == "/api/files/upload" && method == "POST" -> handleFileUpload(
                     socket, buffer, bytesRead
                 )
@@ -347,6 +351,34 @@ class HttpFileServerService : Service() {
         }
         val body = "{\"success\":true,\"cwd\":\"${jsonEscape(cwd)}\",\"entries\":$entriesJson}"
         sendResponse(socket, 200, "application/json; charset=utf-8", body)
+    }
+
+    private fun handleFileInfo(socket: Socket, query: String) {
+        val response = if (!fileService.isPermissionGranted()) {
+            FileInfoResponse(success = false, code = FileService.CODE_PERMISSION_DENIED)
+        } else {
+            fileService.info(parseQueryPath(query))?.let { info ->
+                FileInfoResponse(
+                    success = true,
+                    info = if (info.isDir) info else info.copy(mimeType = getMimeType(info.name)),
+                )
+            } ?: FileInfoResponse(success = false, code = FileService.CODE_NOT_FOUND)
+        }
+        val status = if (response.success) 200 else opStatus(FileOpResponse(false, code = response.code))
+        sendResponse(
+            socket, status, "application/json; charset=utf-8",
+            fileJson.encodeToString(FileInfoResponse.serializer(), response),
+        )
+    }
+
+    /** 读完整个文件计算摘要，大文件可能耗时数秒到数十秒；每个连接独立线程，不阻塞其他请求。 */
+    private fun handleFileHash(socket: Socket, query: String) {
+        val response = fileService.hash(parseQueryPath(query))
+        val status = if (response.success) 200 else opStatus(FileOpResponse(false, code = response.code))
+        sendResponse(
+            socket, status, "application/json; charset=utf-8",
+            fileJson.encodeToString(FileHashResponse.serializer(), response),
+        )
     }
 
     private fun handleFileDownload(socket: Socket, query: String, request: String) {

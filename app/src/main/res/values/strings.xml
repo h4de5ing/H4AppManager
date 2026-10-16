@@ -38,19 +38,22 @@
     <string name="detail_version">版本</string>
     <string name="detail_version_value">%1$s (%2$d)</string>
     <string name="detail_type">类型</string>
-    <string name="detail_size">APK 大小</string>
+    <string name="detail_package_format">安装包格式</string>
+    <string name="package_format_apk">APK</string>
+    <string name="package_format_xapk">XAPK（base + %1$d 个拆分 APK）</string>
+    <string name="detail_size">安装包大小</string>
     <string name="detail_target_sdk">Target SDK</string>
     <string name="detail_install_time">安装时间</string>
     <string name="detail_update_time">更新时间</string>
     <string name="detail_apk_path">APK 路径</string>
     <string name="launch_failed">启动失败</string>
     <string name="launch_unavailable">该应用无可启动的入口</string>
-    <string name="preparing_apk_share">正在准备 APK…</string>
+    <string name="preparing_apk_share">正在准备安装包…</string>
     <string name="share_apk_chooser">分享 APK 到</string>
     <string name="share_apk_failed">分享失败：%1$s</string>
     <string name="export_success">%1$s 已导出到所选位置</string>
     <string name="export_failed">导出失败：%1$s</string>
-    <string name="export_source_missing">未找到 APK 源文件</string>
+    <string name="export_source_missing">未找到安装包源文件</string>
     <string name="export_target_unavailable">无法写入目标文件</string>
 
     <!-- 聊天 -->

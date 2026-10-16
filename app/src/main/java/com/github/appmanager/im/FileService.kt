@@ -12,6 +12,8 @@ import android.util.Base64
 import android.util.Log
 import androidx.core.content.ContextCompat
 import java.io.File
+import java.security.MessageDigest
+import java.util.zip.CRC32
 
 /**
  * 文件管理器后端：以外部存储根目录（/sdcard，即 Environment.getExternalStorageDirectory()）
@@ -191,6 +193,68 @@ class FileService(private val context: Context) {
         if (!file.exists() || !file.isFile) return null
         return file
     }
+
+    /** 文件或目录属性；无权限、越界或不存在返回 null。 */
+    fun info(rel: String): FileInfo? {
+        if (!isPermissionGranted()) return null
+        val file = resolve(rel) ?: return null
+        if (!file.exists()) return null
+        return FileInfo(
+            name = if (relativeToRoot(file).isEmpty()) "sdcard" else file.name,
+            path = relativeToRoot(file),
+            absolutePath = file.absolutePath,
+            isDir = file.isDirectory,
+            size = if (file.isFile) file.length() else 0L,
+            modified = file.lastModified(),
+            readable = file.canRead(),
+            writable = file.canWrite(),
+            hidden = file.isHidden,
+            childCount = if (file.isDirectory) file.list()?.size ?: 0 else null,
+        )
+    }
+
+    /** 单次读取同时计算 MD5 / SHA-1 / SHA-256 / CRC32，大文件也只读一遍。 */
+    fun hash(rel: String): FileHashResponse {
+        if (!isPermissionGranted()) {
+            return FileHashResponse(success = false, code = CODE_PERMISSION_DENIED, message = "需要所有文件访问权限")
+        }
+        val file = resolveForDownload(rel)
+            ?: return FileHashResponse(success = false, code = CODE_NOT_FOUND, message = "文件不存在")
+        return try {
+            val startedAt = System.currentTimeMillis()
+            val md5 = MessageDigest.getInstance("MD5")
+            val sha1 = MessageDigest.getInstance("SHA-1")
+            val sha256 = MessageDigest.getInstance("SHA-256")
+            val crc32 = CRC32()
+            var total = 0L
+            file.inputStream().use { input ->
+                val buffer = ByteArray(256 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    md5.update(buffer, 0, read)
+                    sha1.update(buffer, 0, read)
+                    sha256.update(buffer, 0, read)
+                    crc32.update(buffer, 0, read)
+                    total += read
+                }
+            }
+            FileHashResponse(
+                success = true,
+                size = total,
+                md5 = md5.digest().toHex(),
+                sha1 = sha1.digest().toHex(),
+                sha256 = sha256.digest().toHex(),
+                crc32 = "%08x".format(crc32.value),
+                elapsedMs = System.currentTimeMillis() - startedAt,
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "hash failed", e)
+            FileHashResponse(success = false, code = CODE_IO_ERROR, message = e.message)
+        }
+    }
+
+    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
     private fun relativeToRoot(file: File): String {
         return try {

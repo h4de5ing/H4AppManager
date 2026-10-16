@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
@@ -29,6 +31,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
@@ -38,8 +41,13 @@ import androidx.recyclerview.widget.RecyclerView
 import com.github.appmanager.HttpFileServerService
 import com.github.appmanager.LanAddress
 import com.github.appmanager.R
+import com.github.appmanager.XapkApk
+import com.github.appmanager.XapkMetadata
+import com.github.appmanager.writeXapk
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
+import java.io.OutputStream
 import java.security.MessageDigest
 import java.text.DateFormat
 import java.util.Date
@@ -53,6 +61,11 @@ class AppsPage(
 ) {
     private companion object {
         const val TAG = "AppsPage"
+        const val APK_MIME = "application/vnd.android.package-archive"
+        const val XAPK_MIME = "application/octet-stream"
+
+        /** 列表 42dp、详情 52dp，统一按较大的详情尺寸渲染图标。 */
+        const val ICON_SIZE_DP = 52f
 
         /**
          * 仅保存在当前应用进程内。页面重建时可直接复用；
@@ -94,14 +107,13 @@ class AppsPage(
     private val serverChipText: TextView = root.findViewById(R.id.server_chip_text)
 
     private val exportApkLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.CreateDocument("application/vnd.android.package-archive")
-    ) { uri ->
-        val app = pendingExportApp
-        pendingExportApp = null
-        if (uri != null && app != null) {
-            exportApk(app, uri)
-        }
-    }
+        ActivityResultContracts.CreateDocument(APK_MIME)
+    ) { uri -> onExportTargetChosen(uri) }
+
+    // 拆分安装（App Bundle）的应用只导出 base.apk 无法在其他设备安装，需打包为 XAPK。
+    private val exportXapkLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.CreateDocument(XAPK_MIME)
+    ) { uri -> onExportTargetChosen(uri) }
 
     init {
         appListView.layoutManager = LinearLayoutManager(activity)
@@ -185,7 +197,15 @@ class AppsPage(
         val label =
             appInfo.loadLabel(packageManager).toString().takeIf { it.isNotBlank() } ?: packageName
         val apkPath = appInfo.sourceDir.orEmpty()
-        val apkFile = apkPath.takeIf { it.isNotBlank() }?.let(::File)
+        val splitApkPaths = appInfo.splitSourceDirs?.filter { it.isNotBlank() }.orEmpty()
+        val splitNames = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            appInfo.splitNames?.toList().orEmpty()
+        } else {
+            emptyList()
+        }
+        val apkSizeBytes = (listOf(apkPath) + splitApkPaths)
+            .filter { it.isNotBlank() }
+            .sumOf { path -> File(path).takeIf(File::exists)?.length() ?: 0L }
 
         return InstalledApp(
             label = label,
@@ -193,15 +213,48 @@ class AppsPage(
             versionName = versionName.orEmpty(),
             versionCode = PackageInfoCompat.getLongVersionCode(this),
             isSystem = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0,
-            icon = appInfo.loadIcon(packageManager),
+            icon = appInfo.loadUncachedIcon(packageManager).toIconDrawable(),
             apkPath = apkPath,
-            apkSizeBytes = apkFile?.takeIf(File::exists)?.length() ?: 0L,
+            splitApks = splitApkPaths.mapIndexed { index, path ->
+                XapkApk(File(path), splitNames.getOrNull(index) ?: splitIdFromFileName(path))
+            },
+            apkSizeBytes = apkSizeBytes,
             firstInstallTime = firstInstallTime,
             lastUpdateTime = lastUpdateTime,
             targetSdk = appInfo.targetSdkVersion,
+            minSdk = appInfo.minSdkVersion,
             signatureDigests = buildSignatureDigests(this),
         )
     }
+
+    /**
+     * 绕过 Resources 的 Drawable 缓存加载其他应用的图标。
+     *
+     * 部分 ROM 上其他应用图标进入缓存后会与本应用资源的缓存 key 冲突，导致列表行背景
+     * 被替换成别的应用的大图（如 1254px 的 nodpi 前景图），把整行撑高。Resources 只在
+     * 请求的 density 与屏幕一致时写缓存，因此用相差 1 的 density 加载；随后统一渲染成
+     * 固定尺寸位图，这点缩放差异不可见。
+     */
+    private fun ApplicationInfo.loadUncachedIcon(packageManager: PackageManager): Drawable {
+        if (icon != 0) {
+            try {
+                val resources = packageManager.getResourcesForApplication(this)
+                val density = activity.resources.displayMetrics.densityDpi + 1
+                resources.getDrawableForDensity(icon, density, null)?.let { return it }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to load icon for $packageName", e)
+            }
+        }
+        return loadIcon(packageManager)
+    }
+
+    /** 把图标渲染成固定尺寸的自有位图，限定尺寸并避免与系统共享 Drawable 状态。 */
+    private fun Drawable.toIconDrawable(): Drawable {
+        val size = iconSizePx
+        return BitmapDrawable(activity.resources, toBitmap(size, size, Bitmap.Config.ARGB_8888))
+    }
+
+    private val iconSizePx: Int by lazy { activity.dp(ICON_SIZE_DP) }
 
     private fun applyFilters() {
         val query = searchInput.text.toString().trim().lowercase(Locale.getDefault())
@@ -286,7 +339,8 @@ class AppsPage(
         sheet.findViewById<View>(R.id.action_export).setOnClickListener {
             dialog.dismiss()
             pendingExportApp = app
-            exportApkLauncher.launch(buildExportFileName(app))
+            val launcher = if (app.isSplit) exportXapkLauncher else exportApkLauncher
+            launcher.launch(buildExportFileName(app))
         }
         sheet.findViewById<View>(R.id.action_settings).setOnClickListener {
             dialog.dismiss()
@@ -304,6 +358,14 @@ class AppsPage(
         addDetailRow(
             basicGroup, R.string.detail_type,
             activity.getString(if (app.isSystem) R.string.system_app else R.string.user_app),
+        )
+        addDetailRow(
+            basicGroup, R.string.detail_package_format,
+            if (app.isSplit) {
+                activity.getString(R.string.package_format_xapk, app.splitApks.size)
+            } else {
+                activity.getString(R.string.package_format_apk)
+            },
         )
         addDetailRow(
             basicGroup, R.string.detail_size,
@@ -407,14 +469,21 @@ class AppsPage(
         }
     }
 
+    private fun onExportTargetChosen(uri: Uri?) {
+        val app = pendingExportApp
+        pendingExportApp = null
+        if (uri != null && app != null) {
+            exportApk(app, uri)
+        }
+    }
+
     private fun exportApk(app: InstalledApp, targetUri: Uri) {
+        // 图标 Drawable 与列表共用，先在主线程转成 PNG 再交给后台线程。
+        val iconPng = if (app.isSplit) app.iconPng() else null
         Thread {
             val result = runCatching {
-                require(app.apkPath.isNotBlank()) { activity.getString(R.string.export_source_missing) }
                 activity.contentResolver.openOutputStream(targetUri)?.use { outputStream ->
-                    FileInputStream(app.apkPath).use { inputStream ->
-                        inputStream.copyTo(outputStream)
-                    }
+                    writePackage(app, iconPng, outputStream)
                 } ?: error(activity.getString(R.string.export_target_unavailable))
             }
 
@@ -441,15 +510,17 @@ class AppsPage(
 
     private fun shareApk(app: InstalledApp) {
         Toast.makeText(activity, R.string.preparing_apk_share, Toast.LENGTH_SHORT).show()
+        val iconPng = if (app.isSplit) app.iconPng() else null
         Thread {
             val result = runCatching {
-                require(app.apkPath.isNotBlank()) { activity.getString(R.string.export_source_missing) }
-                val source = File(app.apkPath)
-                require(source.exists()) { activity.getString(R.string.export_source_missing) }
-
                 val shareDir = File(activity.cacheDir, "shared_apks").apply { mkdirs() }
                 val target = File(shareDir, buildExportFileName(app))
-                source.copyTo(target, overwrite = true)
+                try {
+                    target.outputStream().use { writePackage(app, iconPng, it) }
+                } catch (e: Exception) {
+                    target.delete()
+                    throw e
+                }
                 FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", target)
             }
 
@@ -457,7 +528,7 @@ class AppsPage(
                 if (activity.isDestroyed) return@runOnUiThread
                 result.mapCatching { uri ->
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/vnd.android.package-archive"
+                        type = if (app.isSplit) XAPK_MIME else APK_MIME
                         putExtra(Intent.EXTRA_STREAM, uri)
                         clipData = ClipData.newRawUri(activity.getString(R.string.share_apk), uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -479,9 +550,42 @@ class AppsPage(
         }.start()
     }
 
+    /** 单 APK 应用原样复制 base.apk；拆分安装的应用打包为包含全部 split 的 XAPK。 */
+    private fun writePackage(app: InstalledApp, iconPng: ByteArray?, output: OutputStream) {
+        require(app.apkPath.isNotBlank()) { activity.getString(R.string.export_source_missing) }
+        val base = File(app.apkPath)
+        require(base.isFile) { activity.getString(R.string.export_source_missing) }
+        if (!app.isSplit) {
+            FileInputStream(base).use { it.copyTo(output) }
+            return
+        }
+        val metadata = XapkMetadata(
+            packageName = app.packageName,
+            label = app.label,
+            versionCode = app.versionCode,
+            versionName = app.versionName,
+            minSdkVersion = app.minSdk,
+            targetSdkVersion = app.targetSdk,
+            iconPng = iconPng,
+        )
+        writeXapk(metadata, listOf(XapkApk(base, "base")) + app.splitApks, output)
+    }
+
+    private fun InstalledApp.iconPng(): ByteArray? = runCatching {
+        val bitmap = icon.toBitmap()
+        ByteArrayOutputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            stream.toByteArray()
+        }
+    }.onFailure { Log.w(TAG, "Failed to render icon for $packageName", it) }.getOrNull()
+
+    private fun splitIdFromFileName(path: String): String =
+        File(path).name.substringBeforeLast('.').removePrefix("split_").ifBlank { "split" }
+
     private fun buildExportFileName(app: InstalledApp): String {
         val versionName = app.versionName.ifBlank { activity.getString(R.string.unknown_value) }
-        return "${app.label}-${app.packageName}-${versionName}.apk".replace(
+        val extension = if (app.isSplit) "xapk" else "apk"
+        return "${app.label}-${app.packageName}-${versionName}.$extension".replace(
             Regex("[\\\\/:*?\"<>|]"),
             "_"
         )
@@ -595,12 +699,17 @@ class AppsPage(
         val isSystem: Boolean,
         val icon: Drawable,
         val apkPath: String,
+        val splitApks: List<XapkApk>,
         val apkSizeBytes: Long,
         val firstInstallTime: Long,
         val lastUpdateTime: Long,
         val targetSdk: Int,
+        val minSdk: Int,
         val signatureDigests: SignatureDigests,
-    )
+    ) {
+        /** 通过 App Bundle 拆分安装、带有 split APK 的应用，需导出为 XAPK。 */
+        val isSplit: Boolean get() = splitApks.isNotEmpty()
+    }
 
     private data class SignatureDigests(
         val md5: String,
