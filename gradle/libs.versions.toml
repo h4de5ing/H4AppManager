@@ -8,7 +8,7 @@ androidx-core = "1.19.1"
 androidx-activity = "1.13.0"
 androidx-recyclerview = "1.4.0"
 kotlinx-serialization = "1.11.0"
-kotlinx-serialization-plugin = "2.4.20"
+kotlinx-serialization-plugin = "2.4.21"
 okio = "3.18.2"
 websockets = "1.6.0"
 

@@ -15,8 +15,8 @@ android {
         applicationId = "com.github.appmanager2"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 21
-        versionName = "2.1"
+        versionCode = 22
+        versionName = "2.2"
     }
 
     signingConfigs {
